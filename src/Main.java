@@ -2,6 +2,7 @@ import java.util.Scanner;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Locale;
 
 public class Main {
 
@@ -19,13 +20,15 @@ public class Main {
             System.out.println("=================================");
 
             System.out.print("Nombre: ");
-            String nombre = teclado.nextLine();
+            String nombre = formatearTexto(teclado.nextLine());
 
             System.out.print("Código: ");
-            String codigo = teclado.nextLine();
+            String codigo = teclado.nextLine()
+                    .trim()
+                    .toUpperCase(Locale.ROOT);
 
             System.out.print("Categoría: ");
-            String categoria = teclado.nextLine();
+            String categoria = formatearTexto(teclado.nextLine());
 
             System.out.println();
             System.out.println("Seleccione el laboratorio:");
@@ -36,7 +39,8 @@ public class Main {
             System.out.println("5. VITA");
 
             System.out.print("Opción: ");
-            int opcionLaboratorio = Integer.parseInt(teclado.nextLine());
+            int opcionLaboratorio =
+                    Integer.parseInt(teclado.nextLine());
 
             String laboratorio;
 
@@ -68,10 +72,15 @@ public class Main {
             }
 
             System.out.print("Cantidad disponible: ");
-            int cantidadDisponible = Integer.parseInt(teclado.nextLine());
+            int cantidadDisponible =
+                    Integer.parseInt(teclado.nextLine());
 
-            System.out.print("Fecha de vencimiento (AAAA-MM-DD): ");
-            String fechaVencimiento = teclado.nextLine();
+            System.out.print(
+                    "Fecha de vencimiento (AAAA-MM-DD): "
+            );
+
+            String fechaVencimiento =
+                    teclado.nextLine().trim();
 
             Medicamento medicamento = new Medicamento(
                     nombre,
@@ -99,8 +108,11 @@ public class Main {
             medicamento.mostrarDatos();
 
             System.out.println();
-            System.out.print("¿Desea registrar otro medicamento? (S/N): ");
-            continuar = teclado.nextLine();
+            System.out.print(
+                    "¿Desea registrar otro medicamento? (S/N): "
+            );
+
+            continuar = teclado.nextLine().trim();
 
         } while (continuar.equalsIgnoreCase("S"));
 
@@ -121,9 +133,13 @@ public class Main {
 
         try {
 
-            BufferedWriter archivo = new BufferedWriter(
-                    new FileWriter("medicamentos.txt", true)
-            );
+            BufferedWriter archivo =
+                    new BufferedWriter(
+                            new FileWriter(
+                                    "medicamentos.txt",
+                                    true
+                            )
+                    );
 
             archivo.write(
                     codigo + ";" +
@@ -138,12 +154,40 @@ public class Main {
 
             archivo.close();
 
-            System.out.println("Medicamento guardado en el archivo correctamente.");
+            System.out.println(
+                    "Medicamento guardado correctamente."
+            );
 
         } catch (IOException e) {
 
-            System.out.println("Error al guardar el medicamento.");
-
+            System.out.println(
+                    "Error al guardar el medicamento."
+            );
         }
+    }
+
+
+    public static String formatearTexto(String texto) {
+
+        texto = texto.trim().toLowerCase();
+
+        if (texto.isEmpty()) {
+            return texto;
+        }
+
+        String[] palabras = texto.split("\\s+");
+
+        StringBuilder resultado = new StringBuilder();
+
+        for (String palabra : palabras) {
+
+            String palabraFormateada =
+                    palabra.substring(0, 1).toUpperCase()
+                    + palabra.substring(1);
+
+            resultado.append(palabraFormateada).append(" ");
+        }
+
+        return resultado.toString().trim();
     }
 }
