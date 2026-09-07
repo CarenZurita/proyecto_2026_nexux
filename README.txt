@@ -2,6 +2,6 @@ Proyecto 2026 Nexux
 
 Integrantes:
 - Caren Zurita
-- Compañero 1
+- Adrian Vargas
 - Compañero 2
 - Compañero 3
