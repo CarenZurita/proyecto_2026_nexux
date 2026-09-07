@@ -142,8 +142,8 @@ public class Main {
                     );
 
             archivo.write(
-                    codigo + ";" +
                     nombre + ";" +
+                    codigo + ";" +
                     categoria + ";" +
                     laboratorio + ";" +
                     cantidadDisponible + ";" +
