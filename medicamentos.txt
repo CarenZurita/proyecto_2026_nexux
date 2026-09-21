@@ -1,1 +1,2 @@
 Paracetamol;MED001;Analgesico;INTI;50;2027-12-20
+Ibuprofeno;MID02;Analgésico;Tabletas;COFAR;10;2027-05-05
