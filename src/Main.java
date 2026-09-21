@@ -2,6 +2,9 @@ import java.util.Scanner;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Locale;
 
 public class Main {
@@ -27,8 +30,9 @@ public class Main {
                     .trim()
                     .toUpperCase(Locale.ROOT);
 
-            System.out.print("Categoría: ");
-            String categoria = formatearTexto(teclado.nextLine());
+            String categoria = seleccionarCategoria(teclado);
+
+            String presentacion = seleccionarPresentacion(teclado);
 
             System.out.println();
             System.out.println("Seleccione el laboratorio:");
@@ -75,17 +79,13 @@ public class Main {
             int cantidadDisponible =
                     Integer.parseInt(teclado.nextLine());
 
-            System.out.print(
-                    "Fecha de vencimiento (AAAA-MM-DD): "
-            );
-
-            String fechaVencimiento =
-                    teclado.nextLine().trim();
+            String fechaVencimiento = leerFechaValida(teclado);
 
             Medicamento medicamento = new Medicamento(
                     nombre,
                     codigo,
                     categoria,
+                    presentacion,
                     laboratorio,
                     cantidadDisponible,
                     fechaVencimiento
@@ -95,6 +95,7 @@ public class Main {
                     nombre,
                     codigo,
                     categoria,
+                    presentacion,
                     laboratorio,
                     cantidadDisponible,
                     fechaVencimiento
@@ -123,10 +124,178 @@ public class Main {
     }
 
 
+    /**
+     * Muestra un menú de categorías predefinidas y devuelve
+     * la seleccionada por el usuario. Repite la pregunta si
+     * la opción ingresada no es válida.
+     */
+    public static String seleccionarCategoria(Scanner teclado) {
+
+        String[] categorias = {
+                "Analgésico",
+                "Antibiótico",
+                "Antiinflamatorio",
+                "Antialérgico",
+                "Antigripal",
+                "Vitaminas y suplementos",
+                "Antiácido / digestivo",
+                "Otro"
+        };
+
+        String categoria = null;
+
+        while (categoria == null) {
+
+            System.out.println();
+            System.out.println("Seleccione la categoría:");
+
+            for (int i = 0; i < categorias.length; i++) {
+                System.out.println((i + 1) + ". " + categorias[i]);
+            }
+
+            System.out.print("Opción: ");
+            String entrada = teclado.nextLine().trim();
+
+            try {
+
+                int opcion = Integer.parseInt(entrada);
+
+                if (opcion >= 1 && opcion <= categorias.length) {
+
+                    categoria = categorias[opcion - 1];
+
+                    if (categoria.equals("Otro")) {
+                        System.out.print("Especifique la categoría: ");
+                        categoria = formatearTexto(teclado.nextLine());
+                    }
+
+                } else {
+                    System.out.println(
+                            "Opción fuera de rango. Intente de nuevo."
+                    );
+                }
+
+            } catch (NumberFormatException e) {
+                System.out.println(
+                        "Debe ingresar un número. Intente de nuevo."
+                );
+            }
+        }
+
+        return categoria;
+    }
+
+
+    /**
+     * Muestra un menú de presentaciones predefinidas y devuelve
+     * la seleccionada por el usuario. Repite la pregunta si
+     * la opción ingresada no es válida.
+     */
+    public static String seleccionarPresentacion(Scanner teclado) {
+
+        String[] presentaciones = {
+                "Tabletas",
+                "Cápsulas",
+                "Jarabe",
+                "Inyección",
+                "Crema / pomada",
+                "Gotas",
+                "Suspensión",
+                "Supositorio",
+                "Otro"
+        };
+
+        String presentacion = null;
+
+        while (presentacion == null) {
+
+            System.out.println();
+            System.out.println("Seleccione la presentación:");
+
+            for (int i = 0; i < presentaciones.length; i++) {
+                System.out.println((i + 1) + ". " + presentaciones[i]);
+            }
+
+            System.out.print("Opción: ");
+            String entrada = teclado.nextLine().trim();
+
+            try {
+
+                int opcion = Integer.parseInt(entrada);
+
+                if (opcion >= 1 && opcion <= presentaciones.length) {
+
+                    presentacion = presentaciones[opcion - 1];
+
+                    if (presentacion.equals("Otro")) {
+                        System.out.print("Especifique la presentación: ");
+                        presentacion = formatearTexto(teclado.nextLine());
+                    }
+
+                } else {
+                    System.out.println(
+                            "Opción fuera de rango. Intente de nuevo."
+                    );
+                }
+
+            } catch (NumberFormatException e) {
+                System.out.println(
+                        "Debe ingresar un número. Intente de nuevo."
+                );
+            }
+        }
+
+        return presentacion;
+    }
+
+
+    /**
+     * Pide la fecha de vencimiento y repite la pregunta hasta
+     * recibir una fecha real con formato AAAA-MM-DD.
+     */
+    public static String leerFechaValida(Scanner teclado) {
+
+        DateTimeFormatter formato =
+                DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        LocalDate fecha = null;
+
+        while (fecha == null) {
+
+            System.out.print(
+                    "Fecha de vencimiento (AAAA-MM-DD): "
+            );
+
+            String entrada = teclado.nextLine().trim();
+
+            try {
+
+                fecha = LocalDate.parse(entrada, formato);
+
+                if (fecha.isBefore(LocalDate.now())) {
+                    System.out.println(
+                            "La fecha ya venció. Ingrese una fecha futura."
+                    );
+                    fecha = null;
+                }
+
+            } catch (DateTimeParseException e) {
+                System.out.println(
+                        "Fecha inválida. Use el formato AAAA-MM-DD "
+                        + "(ej: 2026-12-31)."
+                );
+            }
+        }
+
+        return fecha.format(formato);
+    }
+
+
     public static void guardarMedicamento(
             String nombre,
             String codigo,
             String categoria,
+            String presentacion,
             String laboratorio,
             int cantidadDisponible,
             String fechaVencimiento) {
@@ -145,6 +314,7 @@ public class Main {
                     nombre + ";" +
                     codigo + ";" +
                     categoria + ";" +
+                    presentacion + ";" +
                     laboratorio + ";" +
                     cantidadDisponible + ";" +
                     fechaVencimiento
