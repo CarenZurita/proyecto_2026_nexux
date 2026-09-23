@@ -1,6 +1,8 @@
 import java.util.Scanner;
 import java.io.BufferedWriter;
+import java.io.BufferedReader;
 import java.io.FileWriter;
+import java.io.FileReader;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -13,122 +15,242 @@ public class Main {
 
         Scanner teclado = new Scanner(System.in);
 
-        String continuar;
+        int opcion;
 
         do {
 
             System.out.println();
             System.out.println("=================================");
-            System.out.println("     REGISTRAR MEDICAMENTO");
+            System.out.println("     GESTOR DE MEDICAMENTOS");
             System.out.println("=================================");
-
-            System.out.print("Nombre: ");
-            String nombre = formatearTexto(teclado.nextLine());
-
-            System.out.print("Código: ");
-            String codigo = teclado.nextLine()
-                    .trim()
-                    .toUpperCase(Locale.ROOT);
-
-            String categoria = seleccionarCategoria(teclado);
-
-            String presentacion = seleccionarPresentacion(teclado);
-
-            System.out.println();
-            System.out.println("Seleccione el laboratorio:");
-            System.out.println("1. INTI");
-            System.out.println("2. Bagó");
-            System.out.println("3. COFAR");
-            System.out.println("4. LAFAR");
-            System.out.println("5. VITA");
-
+            System.out.println("1. Registrar medicamento");
+            System.out.println("2. Buscar medicamento");
+            System.out.println("3. Salir");
             System.out.print("Opción: ");
-            int opcionLaboratorio =
-                    Integer.parseInt(teclado.nextLine());
 
-            String laboratorio;
+            String entrada = teclado.nextLine().trim();
 
-            switch (opcionLaboratorio) {
+            try {
+                opcion = Integer.parseInt(entrada);
+            } catch (NumberFormatException e) {
+                opcion = -1;
+            }
+
+            switch (opcion) {
 
                 case 1:
-                    laboratorio = "INTI";
+                    registrarMedicamento(teclado);
                     break;
 
                 case 2:
-                    laboratorio = "Bagó";
+                    buscarMedicamento(teclado);
                     break;
 
                 case 3:
-                    laboratorio = "COFAR";
-                    break;
-
-                case 4:
-                    laboratorio = "LAFAR";
-                    break;
-
-                case 5:
-                    laboratorio = "VITA";
+                    System.out.println();
+                    System.out.println("Programa finalizado.");
                     break;
 
                 default:
-                    laboratorio = "No especificado";
+                    System.out.println("Opción inválida. Intente de nuevo.");
                     break;
             }
 
-            System.out.print("Cantidad disponible: ");
-            int cantidadDisponible =
-                    Integer.parseInt(teclado.nextLine());
-
-            String fechaVencimiento = leerFechaValida(teclado);
-
-            Medicamento medicamento = new Medicamento(
-                    nombre,
-                    codigo,
-                    categoria,
-                    presentacion,
-                    laboratorio,
-                    cantidadDisponible,
-                    fechaVencimiento
-            );
-
-            guardarMedicamento(
-                    nombre,
-                    codigo,
-                    categoria,
-                    presentacion,
-                    laboratorio,
-                    cantidadDisponible,
-                    fechaVencimiento
-            );
-
-            System.out.println();
-            System.out.println("=================================");
-            System.out.println("MEDICAMENTO REGISTRADO");
-            System.out.println("=================================");
-
-            medicamento.mostrarDatos();
-
-            System.out.println();
-            System.out.print(
-                    "¿Desea registrar otro medicamento? (S/N): "
-            );
-
-            continuar = teclado.nextLine().trim();
-
-        } while (continuar.equalsIgnoreCase("S"));
-
-        System.out.println();
-        System.out.println("Programa finalizado.");
+        } while (opcion != 3);
 
         teclado.close();
     }
 
 
-    /**
-     * Muestra un menú de categorías predefinidas y devuelve
-     * la seleccionada por el usuario. Repite la pregunta si
-     * la opción ingresada no es válida.
-     */
+    public static void registrarMedicamento(Scanner teclado) {
+
+        System.out.println();
+        System.out.println("=================================");
+        System.out.println("     REGISTRAR MEDICAMENTO");
+        System.out.println("=================================");
+
+        System.out.print("Nombre: ");
+        String nombre = formatearTexto(teclado.nextLine());
+
+        System.out.print("Código: ");
+        String codigo = teclado.nextLine()
+                .trim()
+                .toUpperCase(Locale.ROOT);
+
+        String categoria = seleccionarCategoria(teclado);
+
+        String presentacion = seleccionarPresentacion(teclado);
+
+        System.out.println();
+        System.out.println("Seleccione el laboratorio:");
+        System.out.println("1. INTI");
+        System.out.println("2. Bagó");
+        System.out.println("3. COFAR");
+        System.out.println("4. LAFAR");
+        System.out.println("5. VITA");
+
+        System.out.print("Opción: ");
+        int opcionLaboratorio =
+                Integer.parseInt(teclado.nextLine());
+
+        String laboratorio;
+
+        switch (opcionLaboratorio) {
+
+            case 1:
+                laboratorio = "INTI";
+                break;
+
+            case 2:
+                laboratorio = "Bagó";
+                break;
+
+            case 3:
+                laboratorio = "COFAR";
+                break;
+
+            case 4:
+                laboratorio = "LAFAR";
+                break;
+
+            case 5:
+                laboratorio = "VITA";
+                break;
+
+            default:
+                laboratorio = "No especificado";
+                break;
+        }
+
+        System.out.print("Cantidad disponible: ");
+        int cantidadDisponible =
+                Integer.parseInt(teclado.nextLine());
+
+        String fechaVencimiento = leerFechaValida(teclado);
+
+        Medicamento medicamento = new Medicamento(
+                nombre,
+                codigo,
+                categoria,
+                presentacion,
+                laboratorio,
+                cantidadDisponible,
+                fechaVencimiento
+        );
+
+        guardarMedicamento(
+                nombre,
+                codigo,
+                categoria,
+                presentacion,
+                laboratorio,
+                cantidadDisponible,
+                fechaVencimiento
+        );
+
+        System.out.println();
+        System.out.println("=================================");
+        System.out.println("MEDICAMENTO REGISTRADO");
+        System.out.println("=================================");
+
+        medicamento.mostrarDatos();
+    }
+
+
+    
+    public static void buscarMedicamento(Scanner teclado) {
+
+        System.out.println();
+        System.out.println("=================================");
+        System.out.println("     BUSCAR MEDICAMENTO");
+        System.out.println("=================================");
+        System.out.print("Ingrese nombre o código a buscar: ");
+
+        String busqueda = teclado.nextLine()
+                .trim()
+                .toLowerCase(Locale.ROOT);
+
+        if (busqueda.isEmpty()) {
+            System.out.println("Debe ingresar un texto para buscar.");
+        }
+
+        try (BufferedReader archivo =
+                     new BufferedReader(new FileReader("medicamentos.txt"))) {
+
+            String linea;
+            int encontrados = 0;
+
+            while ((linea = archivo.readLine()) != null) {
+
+                if (linea.isBlank()) {
+                    continue;
+                }
+
+                String[] datos = linea.split(";");
+
+                if (datos.length < 7) {
+                    continue;
+                }
+
+                System.out.println("Medicamento encontrado");
+                String nombre = datos[0];
+                String codigo = datos[1];
+                String categoria = datos[2];
+                String presentacion = datos[3];
+                String laboratorio = datos[4];
+                String fechaVencimiento = datos[6];
+
+                int cantidadDisponible;
+
+                try {
+                    cantidadDisponible = Integer.parseInt(datos[5]);
+                } catch (NumberFormatException e) {
+                    cantidadDisponible = 0;
+                }
+
+                boolean coincide =
+                        nombre.toLowerCase(Locale.ROOT).contains(busqueda)
+                        || codigo.toLowerCase(Locale.ROOT).contains(busqueda);
+
+                if (coincide) {
+
+                    encontrados++;
+
+                    Medicamento medicamento = new Medicamento(
+                            nombre,
+                            codigo,
+                            categoria,
+                            presentacion,
+                            laboratorio,
+                            cantidadDisponible,
+                            fechaVencimiento
+                    );
+
+                    System.out.println();
+                    System.out.println("---------------------------------");
+                    medicamento.mostrarDatos();
+                }
+            }
+
+            System.out.println();
+
+            if (encontrados == 0) {
+                System.out.println("No se encontraron coincidencias.");
+            } else {
+                System.out.println(
+                        encontrados + " medicamento(s) encontrado(s)."
+                );
+            }
+
+        } catch (IOException e) {
+            System.out.println(
+                    "Aún no hay medicamentos registrados o no se pudo "
+                    + "leer el archivo."
+            );
+        }
+    }
+
+
     public static String seleccionarCategoria(Scanner teclado) {
 
         String[] categorias = {
@@ -186,11 +308,6 @@ public class Main {
     }
 
 
-    /**
-     * Muestra un menú de presentaciones predefinidas y devuelve
-     * la seleccionada por el usuario. Repite la pregunta si
-     * la opción ingresada no es válida.
-     */
     public static String seleccionarPresentacion(Scanner teclado) {
 
         String[] presentaciones = {
@@ -249,10 +366,7 @@ public class Main {
     }
 
 
-    /**
-     * Pide la fecha de vencimiento y repite la pregunta hasta
-     * recibir una fecha real con formato AAAA-MM-DD.
-     */
+    
     public static String leerFechaValida(Scanner teclado) {
 
         DateTimeFormatter formato =
