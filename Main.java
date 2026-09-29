@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import java.util.Scanner;
 import java.io.BufferedWriter;
 import java.io.BufferedReader;
@@ -952,5 +952,4 @@ public class Main {
 
         return resultado.toString().trim();
     }
->>>>>>> 1e90f38 (Agrego el metodo buscarMedicamento)
 }
