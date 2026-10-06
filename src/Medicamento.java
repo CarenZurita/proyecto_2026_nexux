@@ -8,9 +8,8 @@ public class Medicamento {
     private String fechaVencimiento;
 
     public Medicamento(String nombre, String codigo, String categoria,
-                   String presentacion, String laboratorio,
-                   int cantidadDisponible, String fechaVencimiento) {
-
+                       String presentacion, String laboratorio,
+                       int cantidadDisponible, String fechaVencimiento) {
         this.nombre = nombre;
         this.codigo = codigo;
         this.categoria = categoria;
@@ -21,7 +20,6 @@ public class Medicamento {
     }
 
     public void mostrarDatos() {
-
         System.out.println("Nombre: " + nombre);
         System.out.println("Código: " + codigo);
         System.out.println("Categoría: " + categoria);
@@ -30,16 +28,12 @@ public class Medicamento {
         System.out.println("Cantidad disponible: " + cantidadDisponible);
         System.out.println("Fecha de vencimiento: " + fechaVencimiento);
     }
-    public int getCantidadDisponible(){
 
-    return cantidadDisponible;
-
+    public int getCantidadDisponible() {
+        return cantidadDisponible;
     }
 
-    public void reducirCantidad(int cantidad){
-
-    cantidadDisponible =
-    cantidadDisponible - cantidad;
-
-    }   
+    public void reducirCantidad(int cantidad) {
+        cantidadDisponible = cantidadDisponible - cantidad;
+    }
 }

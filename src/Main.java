@@ -1,479 +1,1510 @@
-import java.io.BufferedReader;
+import java.util.Scanner;
 import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileReader;
+import java.io.BufferedReader;
 import java.io.FileWriter;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.security.GeneralSecurityException;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Locale;
-import java.util.Scanner;
 
 public class Main {
 
-    static final String ARCHIVO_MEDICAMENTOS = "medicamentos.txt";
-    static final String ARCHIVO_RESPALDO = "medicamentos.bak";
-    static final String ARCHIVO_VENTAS = "ventas.txt";
-
-    static final int CAMPOS = 7;
-    static final int UMBRAL_STOCK_BAJO = 10;
-    static final int STOCK_MAXIMO = 100000;
-
-    static final String[] CATEGORIAS = {
-        "Analgésico", "Antibiótico", "Antiinflamatorio", "Antialérgico",
-        "Antigripal", "Vitaminas y suplementos", "Antiácido / digestivo",
-        "Otro"
-    };
-
-    static final String[] PRESENTACIONES = {
-        "Tabletas", "Cápsulas", "Jarabe", "Inyección", "Crema / pomada",
-        "Gotas", "Suspensión", "Supositorio", "Otro"
-    };
-
-    static final String[] LABORATORIOS = {
-        "INTI", "Bagó", "COFAR", "LAFAR", "VITA"
-    };
-
     public static void main(String[] args) {
-
-        Scanner teclado = new Scanner(System.in);
-        int opcion;
-
-        do {
-            mostrarMenu();
-            opcion = Validador.leerEntero(teclado, "Opción: ", 1, 6);
-
-            switch (opcion) {
-                case 1: registrarMedicamento(teclado); break;
-                case 2: buscarMedicamento(teclado);    break;
-                case 3: consultarStock(teclado);       break;
-                case 4: registrarVenta(teclado);       break;
-                case 5: modificarMedicamento(teclado); break;
-                case 6:
-                    System.out.println();
-                    System.out.println("Programa finalizado.");
+        try (Scanner teclado = new Scanner(System.in)) {
+            GestorUsuarios.inicializarAdministrador();
+            while (true) {
+                Usuario sesion = GestorUsuarios.iniciarSesion(teclado);
+                if (sesion == null) {
+                    System.out.println("Se agotaron los intentos. Programa finalizado.");
                     break;
+                }
+                if (sesion.esAdministrador()) {
+                    menuAdministrador(teclado, sesion);
+                } else {
+                    menuEncargado(teclado, sesion);
+                }
+                System.out.println("Sesión cerrada.\n");
             }
-
-        } while (opcion != 6);
-
-        teclado.close();
+        } catch (IOException | GeneralSecurityException e) {
+            System.out.println("No se pudo gestionar usuarios: " + e.getMessage());
+        }
     }
 
-    static void mostrarMenu() {
+    private static int leerOpcion(Scanner teclado, int maximo) {
+        while (true) {
+            System.out.print("Opción: ");
+            try {
+                int opcion = Integer.parseInt(teclado.nextLine().trim());
+                if (opcion >= 0 && opcion <= maximo) return opcion;
+            } catch (NumberFormatException e) {
+                // Se vuelve a pedir una opción válida.
+            }
+            System.out.println("Opción inválida. Intente de nuevo.");
+        }
+    }
+
+    private static void menuAdministrador(Scanner teclado, Usuario sesion)
+            throws IOException, GeneralSecurityException {
+        int opcion;
+        do {
+            System.out.println("\n=== MENÚ DEL ADMINISTRADOR ===");
+            System.out.println("1. Buscar medicamento");
+            System.out.println("2. Consultar stock");
+            System.out.println("3. Registrar medicamento");
+            System.out.println("4. Actualizar medicamento");
+            System.out.println("5. Registrar venta");
+            System.out.println("6. Revisar vencimiento");
+            System.out.println("7. Eliminar medicamento caducado");
+            System.out.println("8. Gestionar encargados");
+            System.out.println("9. Consultar historial de ventas");
+            System.out.println("0. Cerrar sesión");
+            opcion = leerOpcion(teclado, 9);
+            switch (opcion) {
+                case 1: buscarMedicamento(teclado, sesion); break;
+                case 2: consultarStock(teclado, sesion); break;
+                case 3: registrarMedicamento(teclado, sesion); break;
+                case 4: actualizarMedicamento(teclado, sesion); break;
+                case 5: registrarVenta(teclado, sesion); break;
+                case 6: controlarVencimientos(sesion); break;
+                case 7: eliminarMedicamentoCaducado(teclado, sesion); break;
+                case 8: GestorUsuarios.gestionarEncargados(teclado, sesion); break;
+                case 9: consultarHistorialVentas(sesion); break;
+                default: break;
+            }
+        } while (opcion != 0);
+    }
+
+    private static void menuEncargado(Scanner teclado, Usuario sesion) {
+        int opcion;
+        do {
+            System.out.println("\n=== MENÚ DEL ENCARGADO ===");
+            System.out.println("1. Buscar medicamento");
+            System.out.println("2. Consultar stock");
+            System.out.println("3. Registrar venta");
+            System.out.println("4. Revisar vencimiento");
+            System.out.println("0. Cerrar sesión");
+            opcion = leerOpcion(teclado, 4);
+            switch (opcion) {
+                case 1: buscarMedicamento(teclado, sesion); break;
+                case 2: consultarStock(teclado, sesion); break;
+                case 3: registrarVenta(teclado, sesion); break;
+                case 4: controlarVencimientos(sesion); break;
+                default: break;
+            }
+        } while (opcion != 0);
+    }
+
+    private static boolean permitirSesion(Usuario usuario) {
+        if (usuario == null || !usuario.estaActivo()) {
+            System.out.println("Acceso denegado: debe iniciar sesión.");
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean permitirAdministrador(Usuario usuario) {
+        if (usuario == null || !usuario.esAdministrador() || !usuario.estaActivo()) {
+            System.out.println("Acceso denegado: solo el administrador puede realizar esta operación.");
+            return false;
+        }
+        return true;
+    }
+
+    public static void registrarMedicamento(Scanner teclado, Usuario sesion) {
+        if (!permitirAdministrador(sesion)) return;
+
         System.out.println();
         System.out.println("=================================");
-        System.out.println("     GESTOR DE MEDICAMENTOS");
+        System.out.println("     REGISTRAR MEDICAMENTO");
         System.out.println("=================================");
-        System.out.println("1. Registrar medicamento");
-        System.out.println("2. Buscar medicamento");
-        System.out.println("3. Consultar stock");
-        System.out.println("4. Registrar venta");
-        System.out.println("5. Modificar medicamento");
-        System.out.println("6. Salir");
-    }
 
-    static void titulo(String texto) {
-        System.out.println();
-        System.out.println("=================================");
-        System.out.println("     " + texto);
-        System.out.println("=================================");
-    }
+        System.out.print("Nombre: ");
+        String nombre = formatearTexto(teclado.nextLine());
 
-    static void mostrarMedicamento(String[] d) {
+        System.out.print("Código: ");
+        String codigo = teclado.nextLine()
+                .trim()
+                .toUpperCase(Locale.ROOT);
+
+        String categoria = seleccionarCategoria(teclado);
+
+        String presentacion = seleccionarPresentacion(teclado);
+
+        String laboratorio = seleccionarLaboratorio(teclado);
+
+
+
+        System.out.print("Cantidad disponible: ");
+        int cantidadDisponible =
+                Integer.parseInt(teclado.nextLine());
+
+        String fechaVencimiento = leerFechaValida(teclado);
+
         Medicamento medicamento = new Medicamento(
-                d[0], d[1], d[2], d[3], d[4],
-                Integer.parseInt(d[5]), d[6]);
+                nombre,
+                codigo,
+                categoria,
+                presentacion,
+                laboratorio,
+                cantidadDisponible,
+                fechaVencimiento
+        );
+
+        guardarMedicamento(
+                nombre,
+                codigo,
+                categoria,
+                presentacion,
+                laboratorio,
+                cantidadDisponible,
+                fechaVencimiento
+        );
+
+        System.out.println();
+        System.out.println("=================================");
+        System.out.println("MEDICAMENTO REGISTRADO");
+        System.out.println("=================================");
+
         medicamento.mostrarDatos();
     }
 
-    static boolean confirmar(Scanner teclado, String mensaje) {
-        while (true) {
-            System.out.print(mensaje + " (S/N): ");
-            String r = teclado.nextLine().trim().toUpperCase(Locale.ROOT);
 
-            if (r.equals("S")) return true;
-            if (r.equals("N")) return false;
-            System.out.println("Responda S o N.");
-        }
+    
+    public static void buscarMedicamento(Scanner teclado, Usuario sesion) {
+        if (!permitirSesion(sesion)) return;
+
+    System.out.println();
+    System.out.println("=================================");
+    System.out.println("     BUSCAR MEDICAMENTO");
+    System.out.println("=================================");
+    System.out.print("Ingrese nombre o código a buscar: ");
+
+    String busqueda = teclado.nextLine()
+            .trim()
+            .toLowerCase(Locale.ROOT);
+
+    // Si no escribe nada, termina la búsqueda
+    if (busqueda.isEmpty()) {
+        System.out.println("Debe ingresar un texto para buscar.");
+        return;
     }
 
-    static String seleccionarOpcion(Scanner teclado, String titulo,
-                                    String[] opciones) {
+    try (BufferedReader archivo =
+                 new BufferedReader(new FileReader("medicamentos.txt"))) {
+
+        String linea;
+        int encontrados = 0;
+
+        while ((linea = archivo.readLine()) != null) {
+
+            if (linea.isBlank()) {
+                continue;
+            }
+
+            String[] datos = linea.split(";");
+
+            if (datos.length < 7) {
+                continue;
+            }
+
+            String nombre = datos[0];
+            String codigo = datos[1];
+            String categoria = datos[2];
+            String presentacion = datos[3];
+            String laboratorio = datos[4];
+            String fechaVencimiento = datos[6];
+
+            int cantidadDisponible;
+
+            try {
+                cantidadDisponible = Integer.parseInt(datos[5]);
+            } catch (NumberFormatException e) {
+                cantidadDisponible = 0;
+            }
+
+            boolean coincide =
+                    nombre.toLowerCase(Locale.ROOT).contains(busqueda)
+                    || codigo.toLowerCase(Locale.ROOT).contains(busqueda);
+
+            if (coincide) {
+
+                encontrados++;
+
+                Medicamento medicamento = new Medicamento(
+                        nombre,
+                        codigo,
+                        categoria,
+                        presentacion,
+                        laboratorio,
+                        cantidadDisponible,
+                        fechaVencimiento
+                );
+
+                System.out.println();
+                System.out.println("---------------------------------");
+                System.out.println("Medicamento encontrado");
+                System.out.println("---------------------------------");
+
+                medicamento.mostrarDatos();
+            }
+        }
+
         System.out.println();
-        System.out.println(titulo);
 
-        for (int i = 0; i < opciones.length; i++) {
-            System.out.println((i + 1) + ". " + opciones[i]);
+        if (encontrados == 0) {
+            System.out.println("No se encontraron coincidencias.");
+        } else {
+            System.out.println(
+                    encontrados + " medicamento(s) encontrado(s)."
+            );
         }
 
-        int n = Validador.leerEntero(teclado, "Opción: ", 1, opciones.length);
-        String elegida = opciones[n - 1];
-
-        if (elegida.equals("Otro")) {
-            elegida = formatearTexto(
-                    Validador.leerTexto(teclado, "Especifique: "));
-        }
-        return elegida;
+    } catch (IOException e) {
+        System.out.println(
+                "Aún no hay medicamentos registrados o no se pudo "
+                + "leer el archivo."
+        );
     }
+}
 
-    static List<String[]> cargarMedicamentos() throws IOException {
 
-        List<String[]> lista = new ArrayList<>();
-        File archivo = new File(ARCHIVO_MEDICAMENTOS);
+    public static String seleccionarCategoria(Scanner teclado) {
 
-        if (!archivo.exists()) {
-            return lista;
-        }
+        String[] categorias = {
+                "Analgésico",
+                "Antibiótico",
+                "Antiinflamatorio",
+                "Antialérgico",
+                "Antigripal",
+                "Vitaminas y suplementos",
+                "Antiácido / digestivo",
+                "Otro"
+        };
 
-        try (BufferedReader lector =
-                     new BufferedReader(new FileReader(archivo))) {
+        String categoria = null;
 
-            String linea;
-            int numeroLinea = 0;
+        while (categoria == null) {
 
-            while ((linea = lector.readLine()) != null) {
-                numeroLinea++;
+            System.out.println();
+            System.out.println("Seleccione la categoría:");
 
-                if (linea.isBlank()) {
-                    continue;
+            for (int i = 0; i < categorias.length; i++) {
+                System.out.println((i + 1) + ". " + categorias[i]);
+            }
+
+            System.out.print("Opción: ");
+            String entrada = teclado.nextLine().trim();
+
+            try {
+
+                int opcion = Integer.parseInt(entrada);
+
+                if (opcion >= 1 && opcion <= categorias.length) {
+
+                    categoria = categorias[opcion - 1];
+
+                    if (categoria.equals("Otro")) {
+                        System.out.print("Especifique la categoría: ");
+                        categoria = formatearTexto(teclado.nextLine());
+                    }
+
+                } else {
+                    System.out.println(
+                            "Opción fuera de rango. Intente de nuevo."
+                    );
                 }
 
-                String[] d = linea.split(";", -1);
+            } catch (NumberFormatException e) {
+                System.out.println(
+                        "Debe ingresar un número. Intente de nuevo."
+                );
+            }
+        }
 
-                boolean valida = d.length == CAMPOS
-                        && !d[0].isBlank()
-                        && Validador.codigoValido(d[1])
-                        && Validador.esEnteroNoNegativo(d[5])
-                        && Validador.fechaValida(d[6]);
+        return categoria;
+    }
 
-                if (!valida) {
-                    System.out.println("Aviso: la línea " + numeroLinea
-                            + " de " + ARCHIVO_MEDICAMENTOS
-                            + " es inválida y se omite.");
-                    continue;
+
+    public static String seleccionarPresentacion(Scanner teclado) {
+
+        String[] presentaciones = {
+                "Tabletas",
+                "Cápsulas",
+                "Jarabe",
+                "Inyección",
+                "Crema / pomada",
+                "Gotas",
+                "Suspensión",
+                "Supositorio",
+                "Otro"
+        };
+
+        String presentacion = null;
+
+        while (presentacion == null) {
+
+            System.out.println();
+            System.out.println("Seleccione la presentación:");
+
+            for (int i = 0; i < presentaciones.length; i++) {
+                System.out.println((i + 1) + ". " + presentaciones[i]);
+            }
+
+            System.out.print("Opción: ");
+            String entrada = teclado.nextLine().trim();
+
+            try {
+
+                int opcion = Integer.parseInt(entrada);
+
+                if (opcion >= 1 && opcion <= presentaciones.length) {
+
+                    presentacion = presentaciones[opcion - 1];
+
+                    if (presentacion.equals("Otro")) {
+                        System.out.print("Especifique la presentación: ");
+                        presentacion = formatearTexto(teclado.nextLine());
+                    }
+
+                } else {
+                    System.out.println(
+                            "Opción fuera de rango. Intente de nuevo."
+                    );
                 }
 
-                lista.add(d);
+            } catch (NumberFormatException e) {
+                System.out.println(
+                        "Debe ingresar un número. Intente de nuevo."
+                );
             }
         }
-        return lista;
+
+        return presentacion;
     }
 
-    /** Reescribe el archivo completo, guardando antes un respaldo. */
-    static void guardarMedicamentos(List<String[]> lista)
-            throws IOException {
 
-        Path original = Paths.get(ARCHIVO_MEDICAMENTOS);
+    
+    public static String leerFechaValida(Scanner teclado) {
 
-        if (Files.exists(original)) {
-            Files.copy(original, Paths.get(ARCHIVO_RESPALDO),
-                    StandardCopyOption.REPLACE_EXISTING);
-        }
+        DateTimeFormatter formato =
+                DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-        try (BufferedWriter escritor =
-                     new BufferedWriter(new FileWriter(ARCHIVO_MEDICAMENTOS))) {
+        LocalDate fecha = null;
 
-            for (String[] d : lista) {
-                escritor.write(String.join(";", d));
-                escritor.newLine();
+        while (fecha == null) {
+
+            System.out.print(
+                    "Fecha de vencimiento (AAAA-MM-DD): "
+            );
+
+            String entrada = teclado.nextLine().trim();
+
+            try {
+
+                fecha = LocalDate.parse(entrada, formato);
+
+                if (fecha.isBefore(LocalDate.now())) {
+                    System.out.println(
+                            "La fecha ya venció. Ingrese una fecha futura."
+                    );
+                    fecha = null;
+                }
+
+            } catch (DateTimeParseException e) {
+                System.out.println(
+                        "Fecha inválida. Use el formato AAAA-MM-DD "
+                        + "(ej: 2026-12-31)."
+                );
             }
         }
+
+        return fecha.format(formato);
     }
 
-    static void agregarMedicamento(String[] d) throws IOException {
-        try (BufferedWriter escritor =
-                     new BufferedWriter(
-                             new FileWriter(ARCHIVO_MEDICAMENTOS, true))) {
-            escritor.write(String.join(";", d));
-            escritor.newLine();
-        }
-    }
 
-    static void guardarVenta(String codigo, String nombre, int cantidad)
-            throws IOException {
-
-        try (BufferedWriter escritor =
-                     new BufferedWriter(new FileWriter(ARCHIVO_VENTAS, true))) {
-            escritor.write(codigo + ";" + nombre + ";" + cantidad
-                    + ";" + LocalDate.now().format(Validador.FORMATO_FECHA));
-            escritor.newLine();
-        }
-    }
-
-    static String[] buscarPorCodigo(List<String[]> lista, String codigo) {
-        for (String[] d : lista) {
-            if (d[1].equals(codigo)) {
-                return d;
-            }
-        }
-        return null;
-    }
-
-    static void registrarMedicamento(Scanner teclado) {
-
-        titulo("REGISTRAR MEDICAMENTO");
+    private static void guardarMedicamento(
+            String nombre,
+            String codigo,
+            String categoria,
+            String presentacion,
+            String laboratorio,
+            int cantidadDisponible,
+            String fechaVencimiento) {
 
         try {
-            List<String[]> lista = cargarMedicamentos();
 
-            String nombre = formatearTexto(
-                    Validador.leerTexto(teclado, "Nombre: "));
+            BufferedWriter archivo =
+                    new BufferedWriter(
+                            new FileWriter(
+                                    "medicamentos.txt",
+                                    true
+                            )
+                    );
 
-            String codigo;
-            while (true) {
-                codigo = Validador.leerCodigo(teclado, "Código: ");
+            archivo.write(
+                    nombre + ";" +
+                    codigo + ";" +
+                    categoria + ";" +
+                    presentacion + ";" +
+                    laboratorio + ";" +
+                    cantidadDisponible + ";" +
+                    fechaVencimiento
+            );
 
-                if (buscarPorCodigo(lista, codigo) == null) {
-                    break;
-                }
-                System.out.println("Ya existe un medicamento con ese código.");
-            }
+            archivo.newLine();
 
-            String categoria = seleccionarOpcion(
-                    teclado, "Seleccione la categoría:", CATEGORIAS);
-            String presentacion = seleccionarOpcion(
-                    teclado, "Seleccione la presentación:", PRESENTACIONES);
-            String laboratorio = seleccionarOpcion(
-                    teclado, "Seleccione el laboratorio:", LABORATORIOS);
+            archivo.close();
 
-            int cantidad = Validador.leerEntero(
-                    teclado, "Cantidad disponible: ", 1, STOCK_MAXIMO);
-
-            String fecha = Validador.leerFechaFutura(teclado);
-
-            String[] nuevo = {
-                nombre, codigo, categoria, presentacion,
-                laboratorio, String.valueOf(cantidad), fecha
-            };
-
-            agregarMedicamento(nuevo);
-
-            titulo("MEDICAMENTO REGISTRADO");
-            mostrarMedicamento(nuevo);
+            System.out.println(
+                    "Medicamento guardado correctamente."
+            );
 
         } catch (IOException e) {
-            System.out.println("Error al guardar el medicamento.");
+
+            System.out.println(
+                    "Error al guardar el medicamento."
+            );
         }
     }
+    
+    public static void consultarStock(Scanner teclado, Usuario sesion){
+    if (!permitirSesion(sesion)) return;
 
-    static void buscarMedicamento(Scanner teclado) {
 
-        titulo("BUSCAR MEDICAMENTO");
-        System.out.print("Ingrese nombre o código a buscar: ");
+    System.out.println();
+    System.out.println("===============================");
+    System.out.println("      CONSULTAR STOCK");
+    System.out.println("===============================");
 
-        String busqueda = teclado.nextLine().trim().toLowerCase(Locale.ROOT);
 
-        if (busqueda.isEmpty()) {
-            System.out.println("Debe ingresar un texto para buscar.");
+    System.out.print(
+        "Ingrese código del medicamento: "
+    );
+
+
+    String codigo = teclado.nextLine()
+            .trim()
+            .toUpperCase();
+
+
+
+    try(
+        BufferedReader archivo =
+        new BufferedReader(
+        new FileReader("medicamentos.txt"))
+    ){
+
+
+        String linea;
+        boolean encontrado = false;
+
+
+
+        while((linea = archivo.readLine()) != null){
+
+
+            String datos[] = linea.split(";");
+
+
+            if(datos.length < 7){
+
+                continue;
+            }
+
+
+
+            if(datos[1].equals(codigo)){
+
+
+                encontrado = true;
+
+
+                System.out.println();
+                System.out.println(
+                "Medicamento encontrado"
+                );
+
+
+                System.out.println(
+                "Nombre: "
+                + datos[0]
+                );
+
+
+                System.out.println(
+                "Código: "
+                + datos[1]
+                );
+
+
+                System.out.println(
+                "Cantidad disponible: "
+                + datos[5]
+                );
+
+
+
+                int stock =
+                Integer.parseInt(datos[5]);
+
+
+
+                if(stock == 0){
+
+                    System.out.println(
+                    "Estado: SIN STOCK"
+                    );
+
+                }else{
+
+                    System.out.println(
+                    "Estado: DISPONIBLE"
+                    );
+                }
+
+
+                break;
+
+            }
+
+        }
+
+
+
+        if(!encontrado){
+
+            System.out.println(
+            "Medicamento no encontrado."
+            );
+
+        }
+
+
+
+    }catch(IOException e){
+
+
+        System.out.println(
+        "Error al leer medicamentos.txt"
+        );
+
+    }
+
+}
+
+
+public static void registrarVenta(Scanner teclado, Usuario sesion){
+    if (!permitirSesion(sesion)) return;
+
+
+    System.out.println();
+    System.out.println("===============================");
+    System.out.println("       REGISTRAR VENTA");
+    System.out.println("===============================");
+
+
+
+    System.out.print(
+    "Código medicamento: "
+    );
+
+
+    String codigo =
+    teclado.nextLine()
+    .trim()
+    .toUpperCase();
+
+
+
+    System.out.print(
+    "Cantidad vendida: "
+    );
+
+
+    int cantidadVenta =
+    Integer.parseInt(
+    teclado.nextLine()
+    );
+
+
+
+    try{
+
+
+        BufferedReader archivo =
+        new BufferedReader(
+        new FileReader("medicamentos.txt")
+        );
+
+
+        String linea;
+
+        StringBuilder nuevoArchivo =
+        new StringBuilder();
+
+
+        boolean vendido=false;
+
+
+
+        while((linea = archivo.readLine()) != null){
+
+
+            String datos[] =
+            linea.split(";");
+
+
+
+            if(datos.length < 7){
+
+                continue;
+
+            }
+
+
+
+            if(datos[1].equals(codigo)){
+
+
+
+                int stock =
+                Integer.parseInt(datos[5]);
+                
+
+                LocalDate fechaVencimiento;
+
+try {
+
+    fechaVencimiento =
+            LocalDate.parse(
+                    datos[6],
+                    DateTimeFormatter.ofPattern(
+                            "yyyy-MM-dd"
+                    )
+            );
+
+} catch (DateTimeParseException e) {
+
+    System.out.println(
+            "La fecha de vencimiento del medicamento "
+                    + "no es válida."
+    );
+
+    archivo.close();
+
+    return;
+}
+
+
+if (fechaVencimiento.isBefore(LocalDate.now())) {
+
+    System.out.println();
+    System.out.println(
+            "No se puede realizar la venta."
+    );
+
+    System.out.println(
+            "El medicamento se encuentra vencido."
+    );
+
+    archivo.close();
+
+    return;
+}
+
+                if(cantidadVenta <=0){
+
+
+                    System.out.println(
+                    "Cantidad inválida."
+                    );
+
+                    archivo.close();
+                    return;
+
+                }
+
+
+
+                if(cantidadVenta > stock){
+
+
+                    System.out.println(
+                    "Stock insuficiente."
+                    );
+
+                    archivo.close();
+                    return;
+
+                }
+
+
+
+                int nuevoStock =
+                stock - cantidadVenta;
+
+
+
+                datos[5] =
+                String.valueOf(nuevoStock);
+
+
+
+                vendido=true;
+
+
+                guardarVenta(
+                datos[1],
+                datos[0],
+                cantidadVenta
+                );
+
+
+            }
+
+
+
+            nuevoArchivo.append(
+            String.join(";", datos)
+            );
+
+            nuevoArchivo.append("\n");
+
+
+        }
+
+
+
+        archivo.close();
+
+
+
+        if(vendido){
+
+
+            BufferedWriter escritor =
+            new BufferedWriter(
+            new FileWriter(
+            "medicamentos.txt"
+            ));
+
+
+
+            escritor.write(
+            nuevoArchivo.toString()
+            );
+
+
+            escritor.close();
+
+
+
+            System.out.println(
+            "Venta registrada correctamente."
+            );
+
+
+        }else{
+
+
+            System.out.println(
+            "Medicamento no encontrado."
+            );
+
+        }
+
+
+
+    }catch(Exception e){
+
+
+        System.out.println(
+        "Error registrando venta."
+        );
+
+    }
+
+
+}
+
+private static void guardarVenta(
+String codigo,
+String nombre,
+int cantidad){
+
+
+    try{
+
+
+        BufferedWriter archivo =
+        new BufferedWriter(
+        new FileWriter(
+        "ventas.txt",
+        true
+        ));
+
+
+
+        archivo.write(
+        codigo+";"+
+        nombre+";"+
+        cantidad+";"+
+        LocalDate.now()
+        );
+
+
+        archivo.newLine();
+
+
+        archivo.close();
+
+
+
+    }catch(IOException e){
+
+
+        System.out.println(
+        "Error guardando venta."
+        );
+
+    }
+
+
+}
+
+// ======================================================
+// HU-05 ACTUALIZAR MEDICAMENTO
+// ======================================================
+
+public static void actualizarMedicamento(Scanner teclado, Usuario sesion) {
+    if (!permitirAdministrador(sesion)) return;
+
+    System.out.println();
+    System.out.println("=================================");
+    System.out.println("     ACTUALIZAR MEDICAMENTO");
+    System.out.println("=================================");
+
+    System.out.print("Ingrese código del medicamento: ");
+
+    String codigoBuscado = teclado.nextLine()
+            .trim()
+            .toUpperCase(Locale.ROOT);
+
+    if (codigoBuscado.isEmpty()) {
+
+        System.out.println(
+                "El código no puede estar vacío."
+        );
+
+        return;
+    }
+
+    try {
+
+        BufferedReader archivo =
+                new BufferedReader(
+                        new FileReader("medicamentos.txt")
+                );
+
+        StringBuilder nuevoContenido =
+                new StringBuilder();
+
+        String linea;
+
+        boolean encontrado = false;
+
+        while ((linea = archivo.readLine()) != null) {
+
+            if (linea.isBlank()) {
+                continue;
+            }
+
+            String[] datos = linea.split(";");
+
+            if (datos.length < 7) {
+                continue;
+            }
+
+            if (datos[1].equalsIgnoreCase(codigoBuscado)) {
+
+                encontrado = true;
+
+                System.out.println();
+                System.out.println("Medicamento encontrado.");
+                System.out.println("Nombre actual: " + datos[0]);
+                System.out.println("Categoría actual: " + datos[2]);
+                System.out.println("Presentación actual: " + datos[3]);
+                System.out.println("Laboratorio actual: " + datos[4]);
+                System.out.println("Cantidad actual: " + datos[5]);
+                System.out.println("Vencimiento actual: " + datos[6]);
+
+                System.out.println();
+                System.out.println("Ingrese los nuevos datos.");
+
+                // Nombre
+                String nombre;
+
+                do {
+
+                    System.out.print("Nuevo nombre: ");
+
+                    nombre = formatearTexto(
+                            teclado.nextLine()
+                    );
+
+                    if (nombre.isEmpty()) {
+
+                        System.out.println(
+                                "El nombre no puede estar vacío."
+                        );
+                    }
+
+                } while (nombre.isEmpty());
+
+
+                // Categoría
+                String categoria =
+                        seleccionarCategoria(teclado);
+
+
+                // Presentación
+                String presentacion =
+                        seleccionarPresentacion(teclado);
+
+
+                // Laboratorio
+                String laboratorio =
+                        seleccionarLaboratorio(teclado);
+
+
+                // Cantidad
+                int cantidadDisponible;
+
+                while (true) {
+
+                    System.out.print(
+                            "Nueva cantidad disponible: "
+                    );
+
+                    String entrada =
+                            teclado.nextLine().trim();
+
+                    try {
+
+                        cantidadDisponible =
+                                Integer.parseInt(entrada);
+
+                        if (cantidadDisponible < 0) {
+
+                            System.out.println(
+                                    "La cantidad no puede ser negativa."
+                            );
+
+                            continue;
+                        }
+
+                        break;
+
+                    } catch (NumberFormatException e) {
+
+                        System.out.println(
+                                "Debe ingresar un número entero válido."
+                        );
+                    }
+                }
+
+
+                // Fecha de vencimiento
+                String fechaVencimiento =
+                        leerFechaValida(teclado);
+
+
+                datos[0] = nombre;
+                datos[2] = categoria;
+                datos[3] = presentacion;
+                datos[4] = laboratorio;
+                datos[5] =
+                        String.valueOf(cantidadDisponible);
+                datos[6] = fechaVencimiento;
+            }
+
+            nuevoContenido.append(
+                    String.join(";", datos)
+            );
+
+            nuevoContenido.append("\n");
+        }
+
+        archivo.close();
+
+
+        if (!encontrado) {
+
+            System.out.println(
+                    "No existe un medicamento con ese código."
+            );
+
             return;
         }
 
-        try {
-            List<String[]> lista = cargarMedicamentos();
 
-            if (lista.isEmpty()) {
-                System.out.println("Aún no hay medicamentos registrados.");
-                return;
+        BufferedWriter escritor =
+                new BufferedWriter(
+                        new FileWriter("medicamentos.txt")
+                );
+
+        escritor.write(
+                nuevoContenido.toString()
+        );
+
+        escritor.close();
+
+
+        System.out.println();
+        System.out.println(
+                "Medicamento actualizado correctamente."
+        );
+
+    } catch (IOException e) {
+
+        System.out.println(
+                "Error al actualizar el medicamento."
+        );
+    }
+}
+
+public static String seleccionarLaboratorio(Scanner teclado) {
+
+    String laboratorio = null;
+
+    while (laboratorio == null) {
+
+        System.out.println();
+        System.out.println("Seleccione el laboratorio:");
+
+        System.out.println("1. INTI");
+        System.out.println("2. Bagó");
+        System.out.println("3. COFAR");
+        System.out.println("4. LAFAR");
+        System.out.println("5. VITA");
+
+        System.out.print("Opción: ");
+
+        String entrada =
+                teclado.nextLine().trim();
+
+        try {
+
+            int opcion =
+                    Integer.parseInt(entrada);
+
+            switch (opcion) {
+
+                case 1:
+                    laboratorio = "INTI";
+                    break;
+
+                case 2:
+                    laboratorio = "Bagó";
+                    break;
+
+                case 3:
+                    laboratorio = "COFAR";
+                    break;
+
+                case 4:
+                    laboratorio = "LAFAR";
+                    break;
+
+                case 5:
+                    laboratorio = "VITA";
+                    break;
+
+                default:
+
+                    System.out.println(
+                            "Opción fuera de rango."
+                    );
+
+                    break;
             }
 
-            int encontrados = 0;
+        } catch (NumberFormatException e) {
 
-            for (String[] d : lista) {
-                boolean coincide =
-                        d[0].toLowerCase(Locale.ROOT).contains(busqueda)
-                        || d[1].toLowerCase(Locale.ROOT).contains(busqueda);
+            System.out.println(
+                    "Debe ingresar un número."
+            );
+        }
+    }
 
-                if (coincide) {
-                    encontrados++;
+    return laboratorio;
+}
+
+// ======================================================
+// HU-06 CONTROL DE VENCIMIENTOS
+// ======================================================
+
+public static void controlarVencimientos(Usuario sesion) {
+    if (!permitirSesion(sesion)) return;
+
+    System.out.println();
+    System.out.println("=================================");
+    System.out.println("     CONTROL DE VENCIMIENTOS");
+    System.out.println("=================================");
+
+    LocalDate hoy = LocalDate.now();
+
+    LocalDate limite =
+            hoy.plusDays(30);
+
+    boolean encontrado = false;
+
+    try (
+        BufferedReader archivo =
+                new BufferedReader(
+                        new FileReader("medicamentos.txt")
+                )
+    ) {
+
+        String linea;
+
+        while ((linea = archivo.readLine()) != null) {
+
+            if (linea.isBlank()) {
+                continue;
+            }
+
+            String[] datos =
+                    linea.split(";");
+
+            if (datos.length < 7) {
+                continue;
+            }
+
+            String nombre = datos[0];
+            String codigo = datos[1];
+            String fechaTexto = datos[6];
+
+            try {
+
+                LocalDate fechaVencimiento =
+                        LocalDate.parse(
+                                fechaTexto,
+                                DateTimeFormatter.ofPattern(
+                                        "yyyy-MM-dd"
+                                )
+                        );
+
+                if (!fechaVencimiento.isAfter(limite)) {
+
+                    encontrado = true;
+
                     System.out.println();
-                    System.out.println("---------------------------------");
-                    mostrarMedicamento(d);
+                    System.out.println(
+                            "---------------------------------"
+                    );
+
+                    System.out.println(
+                            "Medicamento: " + nombre
+                    );
+
+                    System.out.println(
+                            "Código: " + codigo
+                    );
+
+                    System.out.println(
+                            "Fecha de vencimiento: "
+                                    + fechaTexto
+                    );
+
+
+                    if (fechaVencimiento.isBefore(hoy)) {
+
+                        System.out.println(
+                                "Estado: VENCIDO"
+                        );
+
+                    } else {
+
+                        System.out.println(
+                                "Estado: PRÓXIMO A VENCER"
+                        );
+                    }
+                }
+
+            } catch (DateTimeParseException e) {
+
+                System.out.println(
+                        "Fecha inválida en medicamento: "
+                                + codigo
+                );
+            }
+        }
+
+
+        if (!encontrado) {
+
+            System.out.println();
+            System.out.println(
+                    "No existen medicamentos próximos "
+                            + "a vencer o vencidos."
+            );
+        }
+
+    } catch (IOException e) {
+
+        System.out.println(
+                "No se pudo leer medicamentos.txt."
+        );
+    }
+}
+
+// ======================================================
+// HU-07 ELIMINAR MEDICAMENTO CADUCADO
+// ======================================================
+
+public static void eliminarMedicamentoCaducado(
+        Scanner teclado, Usuario sesion) {
+    if (!permitirAdministrador(sesion)) return;
+
+    System.out.println();
+    System.out.println("=================================");
+    System.out.println(" ELIMINAR MEDICAMENTO CADUCADO");
+    System.out.println("=================================");
+
+    System.out.print(
+            "Ingrese código del medicamento: "
+    );
+
+    String codigoBuscado =
+            teclado.nextLine()
+                    .trim()
+                    .toUpperCase(Locale.ROOT);
+
+
+    if (codigoBuscado.isEmpty()) {
+
+        System.out.println(
+                "El código no puede estar vacío."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        BufferedReader archivo =
+                new BufferedReader(
+                        new FileReader("medicamentos.txt")
+                );
+
+        StringBuilder nuevoContenido =
+                new StringBuilder();
+
+        String linea;
+
+        boolean encontrado = false;
+        boolean eliminado = false;
+
+        LocalDate hoy = LocalDate.now();
+
+
+        while ((linea = archivo.readLine()) != null) {
+
+            if (linea.isBlank()) {
+                continue;
+            }
+
+            String[] datos =
+                    linea.split(";");
+
+
+            if (datos.length < 7) {
+                continue;
+            }
+
+
+            if (datos[1].equalsIgnoreCase(
+                    codigoBuscado)) {
+
+                encontrado = true;
+
+
+                LocalDate fechaVencimiento;
+
+                try {
+
+                    fechaVencimiento =
+                            LocalDate.parse(
+                                    datos[6],
+                                    DateTimeFormatter.ofPattern(
+                                            "yyyy-MM-dd"
+                                    )
+                            );
+
+                } catch (DateTimeParseException e) {
+
+                    System.out.println(
+                            "La fecha del medicamento "
+                                    + "no es válida."
+                    );
+
+                    archivo.close();
+
+                    return;
+                }
+
+
+                if (!fechaVencimiento.isBefore(hoy)) {
+
+                    System.out.println();
+                    System.out.println(
+                            "El medicamento todavía está vigente."
+                    );
+
+                    System.out.println(
+                            "No puede ser eliminado."
+                    );
+
+                    archivo.close();
+
+                    return;
+                }
+
+
+                System.out.println();
+                System.out.println(
+                        "Medicamento caducado encontrado:"
+                );
+
+                System.out.println(
+                        "Nombre: " + datos[0]
+                );
+
+                System.out.println(
+                        "Código: " + datos[1]
+                );
+
+                System.out.println(
+                        "Fecha de vencimiento: "
+                                + datos[6]
+                );
+
+
+                System.out.print(
+                        "¿Desea eliminarlo? (S/N): "
+                );
+
+
+                String confirmacion =
+                        teclado.nextLine()
+                                .trim()
+                                .toUpperCase();
+
+
+                if (confirmacion.equals("S")) {
+
+                    eliminado = true;
+
+                    continue;
+
+                } else {
+
+                    System.out.println(
+                            "Eliminación cancelada."
+                    );
                 }
             }
 
-            System.out.println();
 
-            if (encontrados == 0) {
-                System.out.println("No se encontraron coincidencias.");
-            } else {
-                System.out.println(
-                        encontrados + " medicamento(s) encontrado(s).");
+            nuevoContenido.append(linea);
+            nuevoContenido.append("\n");
+        }
+
+
+        archivo.close();
+
+
+        if (!encontrado) {
+
+            System.out.println(
+                    "Medicamento no encontrado."
+            );
+
+            return;
+        }
+
+
+        if (!eliminado) {
+
+            return;
+        }
+
+
+        BufferedWriter escritor =
+                new BufferedWriter(
+                        new FileWriter(
+                                "medicamentos.txt"
+                        )
+                );
+
+
+        escritor.write(
+                nuevoContenido.toString()
+        );
+
+
+        escritor.close();
+
+
+        System.out.println();
+        System.out.println(
+                "Medicamento eliminado correctamente."
+        );
+
+
+    } catch (IOException e) {
+
+        System.out.println(
+                "Error al eliminar el medicamento."
+        );
+    }
+}
+
+
+
+    public static void consultarHistorialVentas(Usuario sesion) {
+        if (!permitirAdministrador(sesion)) return;
+        System.out.println("\n=== HISTORIAL DE VENTAS ===");
+        if (!Files.exists(Paths.get("ventas.txt"))) {
+            System.out.println("Aún no hay ventas registradas.");
+            return;
+        }
+        int total = 0;
+        try (BufferedReader lector = new BufferedReader(new FileReader("ventas.txt"))) {
+            String linea;
+            while ((linea = lector.readLine()) != null) {
+                String[] datos = linea.split(";", -1);
+                if (datos.length != 3 && datos.length != 4) continue;
+                if (datos[0].isBlank() || datos[1].isBlank() || datos[2].isBlank()) continue;
+                String fecha = datos.length == 4 ? datos[3] : "sin fecha registrada";
+                System.out.println(fecha + " | " + datos[1] + " (" + datos[0]
+                        + ") | Cantidad: " + datos[2]);
+                total++;
             }
-
+            if (total == 0) System.out.println("No hay ventas válidas registradas.");
         } catch (IOException e) {
-            System.out.println("No se pudo leer " + ARCHIVO_MEDICAMENTOS);
+            System.out.println("No se pudo leer ventas.txt.");
         }
     }
 
-    static void consultarStock(Scanner teclado) {
-
-        titulo("CONSULTAR STOCK");
-
-        String codigo = Validador.leerCodigo(
-                teclado, "Ingrese código del medicamento: ");
-
-        try {
-            String[] d = buscarPorCodigo(cargarMedicamentos(), codigo);
-
-            if (d == null) {
-                System.out.println("Medicamento no encontrado.");
-                return;
-            }
-
-            int stock = Integer.parseInt(d[5]);
-
-            System.out.println();
-            System.out.println("Nombre: " + d[0]);
-            System.out.println("Código: " + d[1]);
-            System.out.println("Cantidad disponible: " + stock);
-
-            if (stock == 0) {
-                System.out.println("Estado: SIN STOCK");
-            } else if (stock <= UMBRAL_STOCK_BAJO) {
-                System.out.println("Estado: STOCK BAJO");
-            } else {
-                System.out.println("Estado: DISPONIBLE");
-            }
-
-            if (Validador.estaVencido(d[6])) {
-                System.out.println("Vencimiento: VENCIDO (" + d[6] + ")");
-            } else {
-                System.out.println("Vencimiento: " + d[6] + " (faltan "
-                        + Validador.diasParaVencer(d[6]) + " días)");
-            }
-
-        } catch (IOException e) {
-            System.out.println("Error al leer " + ARCHIVO_MEDICAMENTOS);
-        }
-    }
-
-    static void registrarVenta(Scanner teclado) {
-
-        titulo("REGISTRAR VENTA");
-
-        String codigo = Validador.leerCodigo(teclado, "Código medicamento: ");
-
-        try {
-            List<String[]> lista = cargarMedicamentos();
-            String[] d = buscarPorCodigo(lista, codigo);
-
-            if (d == null) {
-                System.out.println("Medicamento no encontrado.");
-                return;
-            }
-
-            if (Validador.estaVencido(d[6])) {
-                System.out.println(
-                        "No se puede vender: el medicamento está vencido.");
-                return;
-            }
-
-            int stock = Integer.parseInt(d[5]);
-
-            if (stock == 0) {
-                System.out.println("No hay stock disponible.");
-                return;
-            }
-
-            System.out.println("Medicamento: " + d[0]
-                    + " | Stock disponible: " + stock);
-
-            int cantidad = Validador.leerEntero(
-                    teclado, "Cantidad vendida: ", 1, stock);
-
-            int nuevoStock = stock - cantidad;
-            d[5] = String.valueOf(nuevoStock);
-
-            if (nuevoStock == 0) {
-                lista.remove(d);
-            }
-
-            guardarMedicamentos(lista);
-            guardarVenta(d[1], d[0], cantidad);
-
-            System.out.println("Venta registrada correctamente.");
-
-            if (nuevoStock == 0) {
-                System.out.println("Stock agotado: " + d[0]
-                        + " fue eliminado del sistema.");
-            } else if (nuevoStock <= UMBRAL_STOCK_BAJO) {
-                System.out.println("Aviso: quedan " + nuevoStock
-                        + " unidades (stock bajo).");
-            }
-
-        } catch (IOException e) {
-            System.out.println("Error registrando la venta.");
-        }
-    }
-
-    static void modificarMedicamento(Scanner teclado) {
-
-        titulo("MODIFICAR MEDICAMENTO");
-
-        String codigo = Validador.leerCodigo(
-                teclado, "Código del medicamento: ");
-
-        try {
-            List<String[]> lista = cargarMedicamentos();
-            String[] d = buscarPorCodigo(lista, codigo);
-
-            if (d == null) {
-                System.out.println("Medicamento no encontrado.");
-                return;
-            }
-
-            System.out.println();
-            System.out.println("Datos actuales:");
-            mostrarMedicamento(d);
-
-            System.out.println();
-            System.out.println("¿Qué desea modificar?");
-            System.out.println("1. Nombre");
-            System.out.println("2. Cantidad disponible");
-            System.out.println("3. Fecha de vencimiento");
-            System.out.println("4. Cancelar");
-
-            int opcion = Validador.leerEntero(teclado, "Opción: ", 1, 4);
-
-            switch (opcion) {
-                case 1:
-                    d[0] = formatearTexto(
-                            Validador.leerTexto(teclado, "Nuevo nombre: "));
-                    break;
-                case 2:
-                    d[5] = String.valueOf(Validador.leerEntero(
-                            teclado, "Nueva cantidad: ", 0, STOCK_MAXIMO));
-                    break;
-                case 3:
-                    d[6] = Validador.leerFechaFutura(teclado);
-                    break;
-                default:
-                    System.out.println("Operación cancelada.");
-                    return;
-            }
-
-            if (d[5].equals("0")) {
-                lista.remove(d);
-                guardarMedicamentos(lista);
-                System.out.println("Stock en 0: el medicamento fue "
-                        + "eliminado del sistema.");
-            } else {
-                guardarMedicamentos(lista);
-                System.out.println("Medicamento actualizado correctamente.");
-            }
-
-        } catch (IOException e) {
-            System.out.println("Error al modificar el medicamento.");
-        }
-    }
-
-    static String formatearTexto(String texto) {
+    public static String formatearTexto(String texto) {
 
         texto = texto.trim().toLowerCase();
 
@@ -482,12 +1513,16 @@ public class Main {
         }
 
         String[] palabras = texto.split("\\s+");
+
         StringBuilder resultado = new StringBuilder();
 
         for (String palabra : palabras) {
-            resultado.append(palabra.substring(0, 1).toUpperCase())
-                     .append(palabra.substring(1))
-                     .append(" ");
+
+            String palabraFormateada =
+                    palabra.substring(0, 1).toUpperCase()
+                    + palabra.substring(1);
+
+            resultado.append(palabraFormateada).append(" ");
         }
 
         return resultado.toString().trim();
