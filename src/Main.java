@@ -4,6 +4,9 @@ import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.GeneralSecurityException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -12,71 +15,108 @@ import java.util.Locale;
 public class Main {
 
     public static void main(String[] args) {
-
-        Scanner teclado = new Scanner(System.in);
-
-        int opcion;
-
-        do {
-
-            System.out.println("1. Registrar medicamento");
-System.out.println("2. Buscar medicamento");
-System.out.println("3. Consultar stock");
-System.out.println("4. Registrar venta");
-System.out.println("5. Actualizar medicamento");
-System.out.println("6. Control de vencimientos");
-System.out.println("7. Eliminar medicamento caducado");
-System.out.println("8. Salir");
-
-            String entrada = teclado.nextLine().trim();
-
-            try {
-                opcion = Integer.parseInt(entrada);
-            } catch (NumberFormatException e) {
-                opcion = -1;
+        try (Scanner teclado = new Scanner(System.in)) {
+            GestorUsuarios.inicializarAdministrador();
+            while (true) {
+                Usuario sesion = GestorUsuarios.iniciarSesion(teclado);
+                if (sesion == null) {
+                    System.out.println("Se agotaron los intentos. Programa finalizado.");
+                    break;
+                }
+                if (sesion.esAdministrador()) {
+                    menuAdministrador(teclado, sesion);
+                } else {
+                    menuEncargado(teclado, sesion);
+                }
+                System.out.println("Sesión cerrada.\n");
             }
-
-            switch (opcion) {
-
-                case 1:
-                    registrarMedicamento(teclado);
-                    break;
-
-                case 2:
-                    buscarMedicamento(teclado);
-                    break;
-
-                case 3:
-                    consultarStock (teclado);
-                    break;
-                case 4:
-                    registrarVenta (teclado);
-                    break;
-                case 5:
-                    actualizarMedicamento(teclado);
-                    break;
-                case 6:
-                    controlarVencimientos();
-                    break;
-                case 7:
-                   eliminarMedicamentoCaducado(teclado);
-                    break;
-                case 8:
-                    System.out.println();
-                    System.out.println ("programa finalizado");
-                    break;
-                default:
-                    System.out.println ("opcion invalida, intente de nuevo");
-                    break;
-            }
-
-        } while (opcion != 8);
-
-        teclado.close();
+        } catch (IOException | GeneralSecurityException e) {
+            System.out.println("No se pudo gestionar usuarios: " + e.getMessage());
+        }
     }
 
+    private static int leerOpcion(Scanner teclado, int maximo) {
+        while (true) {
+            System.out.print("Opción: ");
+            try {
+                int opcion = Integer.parseInt(teclado.nextLine().trim());
+                if (opcion >= 0 && opcion <= maximo) return opcion;
+            } catch (NumberFormatException e) {
+                // Se vuelve a pedir una opción válida.
+            }
+            System.out.println("Opción inválida. Intente de nuevo.");
+        }
+    }
 
-    public static void registrarMedicamento(Scanner teclado) {
+    private static void menuAdministrador(Scanner teclado, Usuario sesion)
+            throws IOException, GeneralSecurityException {
+        int opcion;
+        do {
+            System.out.println("\n=== MENÚ DEL ADMINISTRADOR ===");
+            System.out.println("1. Buscar medicamento");
+            System.out.println("2. Consultar stock");
+            System.out.println("3. Registrar medicamento");
+            System.out.println("4. Actualizar medicamento");
+            System.out.println("5. Registrar venta");
+            System.out.println("6. Revisar vencimiento");
+            System.out.println("7. Eliminar medicamento caducado");
+            System.out.println("8. Gestionar encargados");
+            System.out.println("9. Consultar historial de ventas");
+            System.out.println("0. Cerrar sesión");
+            opcion = leerOpcion(teclado, 9);
+            switch (opcion) {
+                case 1: buscarMedicamento(teclado, sesion); break;
+                case 2: consultarStock(teclado, sesion); break;
+                case 3: registrarMedicamento(teclado, sesion); break;
+                case 4: actualizarMedicamento(teclado, sesion); break;
+                case 5: registrarVenta(teclado, sesion); break;
+                case 6: controlarVencimientos(sesion); break;
+                case 7: eliminarMedicamentoCaducado(teclado, sesion); break;
+                case 8: GestorUsuarios.gestionarEncargados(teclado, sesion); break;
+                case 9: consultarHistorialVentas(sesion); break;
+                default: break;
+            }
+        } while (opcion != 0);
+    }
+
+    private static void menuEncargado(Scanner teclado, Usuario sesion) {
+        int opcion;
+        do {
+            System.out.println("\n=== MENÚ DEL ENCARGADO ===");
+            System.out.println("1. Buscar medicamento");
+            System.out.println("2. Consultar stock");
+            System.out.println("3. Registrar venta");
+            System.out.println("4. Revisar vencimiento");
+            System.out.println("0. Cerrar sesión");
+            opcion = leerOpcion(teclado, 4);
+            switch (opcion) {
+                case 1: buscarMedicamento(teclado, sesion); break;
+                case 2: consultarStock(teclado, sesion); break;
+                case 3: registrarVenta(teclado, sesion); break;
+                case 4: controlarVencimientos(sesion); break;
+                default: break;
+            }
+        } while (opcion != 0);
+    }
+
+    private static boolean permitirSesion(Usuario usuario) {
+        if (usuario == null || !usuario.estaActivo()) {
+            System.out.println("Acceso denegado: debe iniciar sesión.");
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean permitirAdministrador(Usuario usuario) {
+        if (usuario == null || !usuario.esAdministrador() || !usuario.estaActivo()) {
+            System.out.println("Acceso denegado: solo el administrador puede realizar esta operación.");
+            return false;
+        }
+        return true;
+    }
+
+    public static void registrarMedicamento(Scanner teclado, Usuario sesion) {
+        if (!permitirAdministrador(sesion)) return;
 
         System.out.println();
         System.out.println("=================================");
@@ -135,7 +175,8 @@ System.out.println("8. Salir");
 
 
     
-    public static void buscarMedicamento(Scanner teclado) {
+    public static void buscarMedicamento(Scanner teclado, Usuario sesion) {
+        if (!permitirSesion(sesion)) return;
 
     System.out.println();
     System.out.println("=================================");
@@ -386,7 +427,7 @@ System.out.println("8. Salir");
     }
 
 
-    public static void guardarMedicamento(
+    private static void guardarMedicamento(
             String nombre,
             String codigo,
             String categoria,
@@ -431,7 +472,8 @@ System.out.println("8. Salir");
         }
     }
     
-    public static void consultarStock(Scanner teclado){
+    public static void consultarStock(Scanner teclado, Usuario sesion){
+    if (!permitirSesion(sesion)) return;
 
 
     System.out.println();
@@ -556,7 +598,8 @@ System.out.println("8. Salir");
 }
 
 
-public static void registrarVenta(Scanner teclado){
+public static void registrarVenta(Scanner teclado, Usuario sesion){
+    if (!permitirSesion(sesion)) return;
 
 
     System.out.println();
@@ -789,7 +832,7 @@ if (fechaVencimiento.isBefore(LocalDate.now())) {
 
 }
 
-public static void guardarVenta(
+private static void guardarVenta(
 String codigo,
 String nombre,
 int cantidad){
@@ -810,7 +853,8 @@ int cantidad){
         archivo.write(
         codigo+";"+
         nombre+";"+
-        cantidad
+        cantidad+";"+
+        LocalDate.now()
         );
 
 
@@ -837,7 +881,8 @@ int cantidad){
 // HU-05 ACTUALIZAR MEDICAMENTO
 // ======================================================
 
-public static void actualizarMedicamento(Scanner teclado) {
+public static void actualizarMedicamento(Scanner teclado, Usuario sesion) {
+    if (!permitirAdministrador(sesion)) return;
 
     System.out.println();
     System.out.println("=================================");
@@ -1104,7 +1149,8 @@ public static String seleccionarLaboratorio(Scanner teclado) {
 // HU-06 CONTROL DE VENCIMIENTOS
 // ======================================================
 
-public static void controlarVencimientos() {
+public static void controlarVencimientos(Usuario sesion) {
+    if (!permitirSesion(sesion)) return;
 
     System.out.println();
     System.out.println("=================================");
@@ -1223,7 +1269,8 @@ public static void controlarVencimientos() {
 // ======================================================
 
 public static void eliminarMedicamentoCaducado(
-        Scanner teclado) {
+        Scanner teclado, Usuario sesion) {
+    if (!permitirAdministrador(sesion)) return;
 
     System.out.println();
     System.out.println("=================================");
@@ -1431,6 +1478,31 @@ public static void eliminarMedicamentoCaducado(
 }
 
 
+
+    public static void consultarHistorialVentas(Usuario sesion) {
+        if (!permitirAdministrador(sesion)) return;
+        System.out.println("\n=== HISTORIAL DE VENTAS ===");
+        if (!Files.exists(Paths.get("ventas.txt"))) {
+            System.out.println("Aún no hay ventas registradas.");
+            return;
+        }
+        int total = 0;
+        try (BufferedReader lector = new BufferedReader(new FileReader("ventas.txt"))) {
+            String linea;
+            while ((linea = lector.readLine()) != null) {
+                String[] datos = linea.split(";", -1);
+                if (datos.length != 3 && datos.length != 4) continue;
+                if (datos[0].isBlank() || datos[1].isBlank() || datos[2].isBlank()) continue;
+                String fecha = datos.length == 4 ? datos[3] : "sin fecha registrada";
+                System.out.println(fecha + " | " + datos[1] + " (" + datos[0]
+                        + ") | Cantidad: " + datos[2]);
+                total++;
+            }
+            if (total == 0) System.out.println("No hay ventas válidas registradas.");
+        } catch (IOException e) {
+            System.out.println("No se pudo leer ventas.txt.");
+        }
+    }
 
     public static String formatearTexto(String texto) {
 
