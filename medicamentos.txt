@@ -1,2 +1,4 @@
 Paracetamol;MED001;Analgesico;INTI;50;2027-12-20
 Ibuprofeno;MID02;Analgésico;Tabletas;COFAR;10;2027-05-05
+Amoxicilina;MED003;Antibiótico;Cápsulas;INTI;20;2028-01-15
+Alical;12SW;Analgésico;Tabletas;INTI;12;2026-12-12
