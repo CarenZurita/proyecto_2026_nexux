@@ -1,0 +1,3 @@
+Ibuprofeno;MID02;Vitaminas y suplementos;Jarabe;Bagó;50;2027-03-12
+Amoxicilina;J0106;Antiinflamatorio;Tabletas;INTI;50;2027-12-12
+Paracetamol;12D34F5;Antiinflamatorio;Tabletas;INTI;30;2027-12-12
