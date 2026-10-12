@@ -1,1 +1,8 @@
-bin/
+/bin/
+/target/
+/.idea/
+/.vscode/
+/.qodo/
+/datos/usuarios.txt
+/datos/ventas.txt
+*.class
