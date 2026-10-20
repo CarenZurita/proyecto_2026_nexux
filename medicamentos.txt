@@ -1,3 +1,4 @@
 Amoxicilina;J0106;Antiinflamatorio;Tabletas;INTI;50;2027-12-12
 Paracetamol;12D34F5;Antiinflamatorio;Tabletas;INTI;30;2027-12-12
 Ibuprofeno;MODES12;Antiinflamatorio;Tabletas;INTI;11;2027-02-12
+Acido Valproico;12A3456;Antibiótico;Tabletas;INTI;50;2027-12-12

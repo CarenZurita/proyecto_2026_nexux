@@ -1,0 +1,2 @@
+admin;Administrador;ADMINISTRADOR;true;xQ+eVOirgatwctme907LTw==;mL8s5ZtsoJ6x1nIhCX6oPnZj9rC+SUG9OzT4t1SVmwc=
+joel1_soto;Joel Soto Davila;ENCARGADO;true;NUIzwsv3PHxq1BGRMA3O0Q==;xhEf34xCXiJ/Vn3KnzfDYvDiuntcN4JN+TIi9YWqGe0=
