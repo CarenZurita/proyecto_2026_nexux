@@ -3,8 +3,15 @@ package view;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import model.Rol;
+import model.Usuario;
 
 public class MenuAdministradorView extends JFrame {
+
+    private final Usuario sesion;
+    private final Runnable alCerrarSesion;
 
     private CardLayout cardLayout;
     private JPanel panelContenido;
@@ -13,12 +20,22 @@ public class MenuAdministradorView extends JFrame {
     private final Color AZUL = new Color(37, 99, 235);
     private final Color FONDO = new Color(241, 245, 249);
 
-    public MenuAdministradorView() {
+    public MenuAdministradorView(Usuario sesion, Runnable alCerrarSesion) {
+        if (sesion == null || !sesion.estaActivo() || !sesion.estaEnSesion()
+                || !Rol.ADMINISTRADOR.equals(sesion.getRol())) {
+            throw new SecurityException("Se requiere una sesión de administrador.");
+        }
+        this.sesion = sesion;
+        this.alCerrarSesion = alCerrarSesion;
         setTitle("Salud Vida - Panel Administrador");
         setSize(1100, 700);
         setMinimumSize(new Dimension(850, 550));
         setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) { cerrarSesion(); }
+        });
 
         setLayout(new BorderLayout());
 
@@ -68,19 +85,7 @@ public class MenuAdministradorView extends JFrame {
         cerrarSesion.setFocusPainted(false);
         cerrarSesion.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
 
-        cerrarSesion.addActionListener(e -> {
-            int respuesta = JOptionPane.showConfirmDialog(
-                this,
-                "¿Desea cerrar sesion?",
-                "Confirmar",
-                JOptionPane.YES_NO_OPTION
-            );
-
-            if (respuesta == JOptionPane.YES_OPTION) {
-                dispose();
-                // Aqui conectaremos LoginView posteriormente.
-            }
-        });
+        cerrarSesion.addActionListener(e -> cerrarSesion());
 
         JPanel panelInferior = new JPanel(new BorderLayout());
         panelInferior.setBackground(AZUL_OSCURO);
@@ -119,7 +124,7 @@ public class MenuAdministradorView extends JFrame {
         panel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
         JLabel titulo = new JLabel(
-            nombre.equals("Inicio") ? "Bienvenido, Administrador" : nombre
+            nombre.equals("Inicio") ? "Bienvenido, " + sesion.getNombreCompleto() : nombre
         );
         titulo.setFont(new Font("SansSerif", Font.BOLD, 28));
         titulo.setForeground(AZUL_OSCURO);
@@ -182,10 +187,18 @@ public class MenuAdministradorView extends JFrame {
         return tarjeta;
     }
 
-    // Metodo temporal para probar el menu
+    private void cerrarSesion() {
+        int respuesta = JOptionPane.showConfirmDialog(this, "¿Desea cerrar sesión?",
+                "Confirmar", JOptionPane.YES_NO_OPTION);
+        if (respuesta == JOptionPane.YES_OPTION) {
+            sesion.cerrarSesion();
+            dispose();
+            alCerrarSesion.run();
+        }
+    }
+
+    // La prueba del menú también debe pasar por el login.
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new MenuAdministradorView().setVisible(true);
-        });
+        SwingUtilities.invokeLater(controller.LoginController::mostrarLogin);
     }
 }

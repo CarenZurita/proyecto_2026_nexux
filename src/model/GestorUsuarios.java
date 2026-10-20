@@ -24,6 +24,7 @@ public class GestorUsuarios {
 
     public static void inicializarAdministrador()
             throws IOException, GeneralSecurityException {
+        Files.createDirectories(ARCHIVO.toAbsolutePath().getParent());
         if (Files.exists(ARCHIVO)) return;
         char[] clave = CLAVE_INICIAL.toCharArray();
         try {
@@ -36,6 +37,21 @@ public class GestorUsuarios {
         }
     }
 
+    /** Validación compartida por la consola y el formulario Swing. */
+    public static Usuario iniciarSesion(String nombre, char[] clave)
+            throws IOException, GeneralSecurityException {
+        if (nombre == null || nombre.isBlank() || clave == null || clave.length == 0) {
+            return null;
+        }
+        String normalizado = nombre.trim().toLowerCase(Locale.ROOT);
+        Usuario encontrado = buscar(cargar(), normalizado);
+        if (encontrado != null && encontrado.estaActivo()
+                && encontrado.iniciarSesion(clave)) {
+            return encontrado;
+        }
+        return null;
+    }
+
     public static Usuario iniciarSesion(Scanner teclado)
             throws IOException, GeneralSecurityException {
         for (int intento = 1; intento <= 3; intento++) {
@@ -45,9 +61,8 @@ public class GestorUsuarios {
             System.out.print("Contraseña: ");
             char[] clave = teclado.nextLine().toCharArray();
             try {
-                Usuario encontrado = buscar(cargar(), nombre);
-                if (encontrado != null && encontrado.estaActivo()
-                        && encontrado.iniciarSesion(clave)) {
+                Usuario encontrado = iniciarSesion(nombre, clave);
+                if (encontrado != null) {
                     System.out.println("Bienvenido, " + encontrado.getNombreCompleto() + ".");
                     return encontrado;
                 }
