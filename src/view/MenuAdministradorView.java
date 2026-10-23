@@ -206,12 +206,18 @@ public class MenuAdministradorView extends JFrame {
             tarjetas.add(crearTarjeta("Ventas"));
             tarjetas.add(crearTarjeta("Usuarios"));
             tarjetas.add(crearTarjeta("Reportes"));
-
             panel.add(tarjetas, BorderLayout.CENTER);
+        }
+
+        // MOSTRAR FORMULARIO DE VENTAS
+        if (nombre.equals("Ventas")) {
+            VentaView vistaVentas = new VentaView(sesion);
+            panel.add(vistaVentas, BorderLayout.CENTER);
         }
 
         panelContenido.add(panel, nombre);
     }
+           
 
     // CREAR TARJETAS CON ICONOS GRAFICOS
     private JPanel crearTarjeta(String nombre) {
