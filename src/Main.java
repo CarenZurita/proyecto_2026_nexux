@@ -30,10 +30,31 @@ public class Main {
                     break;
                 }
                 if (sesion.esAdministrador()) {
-                    menuAdministrador(teclado, sesion);
-                } else {
-                    menuEncargado(teclado, sesion);
-                }
+
+    java.util.concurrent.CountDownLatch cierre =
+            new java.util.concurrent.CountDownLatch(1);
+
+    javax.swing.SwingUtilities.invokeLater(() -> {
+
+        view.MenuAdministradorView ventana =
+                new view.MenuAdministradorView(
+                        sesion,
+                        () -> cierre.countDown()
+                );
+
+        ventana.setVisible(true);
+    });
+
+    try {
+        cierre.await();
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
+    }
+
+} else {
+    menuEncargado(teclado, sesion);
+}
                 sesion.cerrarSesion();
                 System.out.println("Sesión cerrada.\n");
             }
