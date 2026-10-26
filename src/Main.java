@@ -1,5 +1,4 @@
 import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -8,7 +7,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Scanner;
 import model.Administrador;
-import model.GestorUsuarios;
 import model.Medicamento;
 import model.Usuario;
 import model.Venta;
@@ -17,52 +15,16 @@ import persistence.VentaRepository;
 import util.Validaciones;
 
 public class Main {
-    private static final MedicamentoRepository MEDICAMENTOS = new MedicamentoRepository();
-    private static final VentaRepository VENTAS = new VentaRepository();
+    private static final MedicamentoRepository MEDICAMENTOS =
+            new MedicamentoRepository();
+
+    private static final VentaRepository VENTAS =
+            new VentaRepository();
 
     public static void main(String[] args) {
-        try (Scanner teclado = new Scanner(System.in)) {
-            GestorUsuarios.inicializarAdministrador();
-            while (true) {
-                Usuario sesion = GestorUsuarios.iniciarSesion(teclado);
-                if (sesion == null) {
-                    System.out.println("Se agotaron los intentos. Programa finalizado.");
-                    break;
-                }
-                if (sesion.esAdministrador()) {
-
-    java.util.concurrent.CountDownLatch cierre =
-            new java.util.concurrent.CountDownLatch(1);
-
-    javax.swing.SwingUtilities.invokeLater(() -> {
-
-        view.MenuAdministradorView ventana =
-                new view.MenuAdministradorView(
-                        sesion,
-                        () -> cierre.countDown()
-                );
-
-        ventana.setVisible(true);
-    });
-
-    try {
-        cierre.await();
-    } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        return;
+        javax.swing.SwingUtilities.invokeLater(
+            controller.LoginController::mostrarLogin);
     }
-
-} else {
-    menuEncargado(teclado, sesion);
-}
-                sesion.cerrarSesion();
-                System.out.println("Sesión cerrada.\n");
-            }
-        } catch (IOException | GeneralSecurityException e) {
-            System.out.println("No se pudo gestionar usuarios: " + e.getMessage());
-        }
-    }
-
     private static int leerOpcion(Scanner teclado, int maximo) {
         while (true) {
             System.out.print("Opción: ");
@@ -76,57 +38,6 @@ public class Main {
             }
             System.out.println("Opción inválida. Intente de nuevo.");
         }
-    }
-
-    private static void menuAdministrador(Scanner teclado, Usuario sesion)
-            throws IOException, GeneralSecurityException {
-        int opcion;
-        do {
-            System.out.println("\n=== MENÚ DEL ADMINISTRADOR ===");
-            System.out.println("1. Buscar medicamento");
-            System.out.println("2. Consultar stock");
-            System.out.println("3. Registrar medicamento");
-            System.out.println("4. Actualizar medicamento");
-            System.out.println("5. Registrar venta");
-            System.out.println("6. Revisar vencimiento");
-            System.out.println("7. Eliminar medicamento caducado");
-            System.out.println("8. Gestionar encargados");
-            System.out.println("9. Consultar historial de ventas");
-            System.out.println("0. Cerrar sesión");
-            opcion = leerOpcion(teclado, 9);
-            switch (opcion) {
-                case 1 -> buscarMedicamento(teclado, sesion);
-                case 2 -> consultarStock(teclado, sesion);
-                case 3 -> registrarMedicamento(teclado, sesion);
-                case 4 -> actualizarMedicamento(teclado, sesion);
-                case 5 -> registrarVenta(teclado, sesion);
-                case 6 -> controlarVencimientos(sesion);
-                case 7 -> eliminarMedicamentoCaducado(teclado, sesion);
-                case 8 -> ((Administrador) sesion).gestionarUsuarios(teclado);
-                case 9 -> consultarHistorialVentas(sesion);
-                default -> { }
-            }
-        } while (opcion != 0);
-    }
-
-    private static void menuEncargado(Scanner teclado, Usuario sesion) {
-        int opcion;
-        do {
-            System.out.println("\n=== MENÚ DEL ENCARGADO ===");
-            System.out.println("1. Buscar medicamento");
-            System.out.println("2. Consultar stock");
-            System.out.println("3. Registrar venta");
-            System.out.println("4. Revisar vencimiento");
-            System.out.println("0. Cerrar sesión");
-            opcion = leerOpcion(teclado, 4);
-            switch (opcion) {
-                case 1 -> buscarMedicamento(teclado, sesion);
-                case 2 -> consultarStock(teclado, sesion);
-                case 3 -> registrarVenta(teclado, sesion);
-                case 4 -> controlarVencimientos(sesion);
-                default -> { }
-            }
-        } while (opcion != 0);
     }
 
     private static boolean permitirSesion(Usuario usuario) {

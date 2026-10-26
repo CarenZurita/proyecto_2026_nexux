@@ -17,9 +17,10 @@ public class LoginView extends JFrame {
     private static final Color TEXTO_SECUNDARIO = new Color(0x64748B);
     private final JTextField campoUsuario = new JTextField(22);
     private final JPasswordField campoClave = new JPasswordField(22);
-    private final JButton botonIngresar = new JButton("Ingresar");
+    private final JButton botonIngresar = new BotonRedondeado("Ingresar");
     private final JCheckBox mostrarClave = new JCheckBox("Mostrar contraseña");
     private final JLabel mensaje = new JLabel(" ");
+    private final JButton botonRecuperar = new JButton("¿Olvidaste tu contraseña?");
 
     public LoginView() {
         setTitle("Gestor de Farmacia - Salud Vida");
@@ -85,8 +86,8 @@ public class LoginView extends JFrame {
         nombre.setForeground(AZUL_OSCURO);
         nombre.setAlignmentX(Component.CENTER_ALIGNMENT);
         JLabel lema = new JLabel("Tu salud, nuestra prioridad");
-        lema.setFont(new Font("SansSerif", Font.ITALIC, 15));
-        lema.setForeground(new Color(0x1D4ED8));
+        lema.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        lema.setForeground(TEXTO_SECUNDARIO);
         lema.setAlignmentX(Component.CENTER_ALIGNMENT);
         marca.add(logo); marca.add(Box.createVerticalStrut(18));
         marca.add(nombre); marca.add(Box.createVerticalStrut(10)); marca.add(lema);
@@ -117,19 +118,38 @@ public class LoginView extends JFrame {
         agregar(formulario, c, etiqueta("Contraseña", campoClave), 4, 0, 8);
         agregar(formulario, c, crearCampo(campoClave, true), 5, 0, 10);
         char caracterOculto = campoClave.getEchoChar();
-        mostrarClave.setOpaque(false);
-        mostrarClave.setForeground(TEXTO_SECUNDARIO);
-        mostrarClave.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        mostrarClave.setFocusPainted(false);
+        prepararCasilla(mostrarClave);
         mostrarClave.addActionListener(e -> campoClave.setEchoChar(
                 mostrarClave.isSelected() ? (char) 0 : caracterOculto));
         agregar(formulario, c, mostrarClave, 6, 0, 22);
         prepararBoton(botonIngresar);
         agregar(formulario, c, botonIngresar, 7, 0, 10);
+        botonRecuperar.setForeground(AZUL);
+        botonRecuperar.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        botonRecuperar.setContentAreaFilled(false); botonRecuperar.setBorderPainted(false);
+        botonRecuperar.setFocusPainted(false);
+        botonRecuperar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        botonRecuperar.setRolloverEnabled(true);
+        Font fuenteEnlace = botonRecuperar.getFont();
+        Runnable actualizarEnlace = () -> {
+            boolean resaltado = botonRecuperar.isEnabled()
+                    && (botonRecuperar.getModel().isRollover() || botonRecuperar.hasFocus());
+            botonRecuperar.setForeground(!botonRecuperar.isEnabled() ? TEXTO_SECUNDARIO
+                    : resaltado ? new Color(0x1D4ED8) : AZUL);
+            botonRecuperar.setFont(resaltado ? fuenteEnlace.deriveFont(java.util.Map.of(
+                    java.awt.font.TextAttribute.UNDERLINE, java.awt.font.TextAttribute.UNDERLINE_ON))
+                    : fuenteEnlace);
+        };
+        botonRecuperar.getModel().addChangeListener(e -> actualizarEnlace.run());
+        botonRecuperar.addFocusListener(new FocusAdapter() {
+            @Override public void focusGained(FocusEvent e) { actualizarEnlace.run(); }
+            @Override public void focusLost(FocusEvent e) { actualizarEnlace.run(); }
+        });
+        agregar(formulario, c, botonRecuperar, 8, 0, 2);
         mensaje.setForeground(ROJO);
         mensaje.setFont(new Font("SansSerif", Font.PLAIN, 12));
         mensaje.setPreferredSize(new Dimension(325, 45));
-        agregar(formulario, c, mensaje, 8, 0, 6);
+        agregar(formulario, c, mensaje, 9, 0, 6);
         GridBagConstraints centro = new GridBagConstraints();
         centro.weightx = 1; centro.fill = GridBagConstraints.HORIZONTAL;
         exterior.add(formulario, centro);
@@ -172,7 +192,8 @@ public class LoginView extends JFrame {
 
     private static void prepararBoton(JButton boton) {
         boton.setBackground(AZUL); boton.setForeground(Color.WHITE);
-        boton.setOpaque(true); boton.setContentAreaFilled(true);
+        boton.setOpaque(!(boton instanceof BotonRedondeado));
+        boton.setContentAreaFilled(!(boton instanceof BotonRedondeado));
         boton.setFocusPainted(false); boton.setBorderPainted(false);
         boton.setFont(new Font("SansSerif", Font.BOLD, 15));
         boton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -182,8 +203,23 @@ public class LoginView extends JFrame {
     public String getUsuario() { return campoUsuario.getText().trim(); }
     public char[] getClave() { return campoClave.getPassword(); }
     public void alIngresar(ActionListener accion) { botonIngresar.addActionListener(accion); }
+    public void alRecuperar(ActionListener accion) { botonRecuperar.addActionListener(accion); }
+    public void establecerUsuario(String nombre) { campoUsuario.setText(nombre); }
     public void limpiarClave() { campoClave.setText(""); campoClave.requestFocusInWindow(); }
-    public void mostrarMensaje(String texto) { mensaje.setText("<html>" + texto + "</html>"); }
+    public void mostrarMensaje(String texto) {
+        mensaje.setForeground(ROJO); mensaje.setText("<html>" + escapar(texto) + "</html>");
+    }
+    public void mostrarExito(String texto) {
+        mensaje.setForeground(new Color(0x047857));
+        mensaje.setText("<html>" + escapar(texto) + "</html>");
+    }
+    private static String escapar(String texto) {
+        return texto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    public DialogoRecuperacion crearDialogoRecuperacion(boolean configuracion, String usuario) {
+        return new DialogoRecuperacion(this, configuracion, usuario);
+    }
 
     /** Modal de autenticación indicado en el documento de referencia. */
     public void mostrarErrorAutenticacion(int restantes) {
@@ -210,7 +246,7 @@ public class LoginView extends JFrame {
         titulo.setFont(new Font("SansSerif", Font.BOLD, 20));
         titulo.setForeground(AZUL_OSCURO); titulo.setAlignmentX(Component.CENTER_ALIGNMENT);
         JLabel detalle = new JLabel("<html><div style='text-align:center;width:285px'>"
-                + "Los credenciales ingresadas no son válidas<br>o la cuenta está deshabilitada.<br>"
+                + "Los credenciales ingresados no son válidos<br>o la cuenta está deshabilitada.<br>"
                 + "Intente nuevamente.</div></html>");
         detalle.setFont(new Font("SansSerif", Font.PLAIN, 13));
         detalle.setForeground(AZUL_OSCURO); detalle.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -218,7 +254,7 @@ public class LoginView extends JFrame {
                 : "Se agotaron los intentos. La aplicación se cerrará.");
         intentos.setFont(new Font("SansSerif", Font.PLAIN, 12));
         intentos.setForeground(TEXTO_SECUNDARIO); intentos.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JButton aceptar = new JButton("Aceptar"); prepararBoton(aceptar);
+        JButton aceptar = new BotonRedondeado("Aceptar"); prepararBoton(aceptar);
         aceptar.setMaximumSize(new Dimension(160, 40));
         aceptar.setAlignmentX(Component.CENTER_ALIGNMENT);
         aceptar.addActionListener(e -> dialogo.dispose());
@@ -234,8 +270,159 @@ public class LoginView extends JFrame {
     public void setProcesando(boolean procesando) {
         campoUsuario.setEnabled(!procesando); campoClave.setEnabled(!procesando);
         mostrarClave.setEnabled(!procesando); botonIngresar.setEnabled(!procesando);
+        botonRecuperar.setEnabled(!procesando);
         botonIngresar.setText(procesando ? "Verificando..." : "Ingresar");
         setDefaultCloseOperation(procesando ? DO_NOTHING_ON_CLOSE : EXIT_ON_CLOSE);
+    }
+
+    /** Un mismo diálogo presenta las dos preguntas y, tras verificarlas, la nueva clave. */
+    public static class DialogoRecuperacion extends JDialog {
+        private final boolean configuracion;
+        private final JPasswordField campoColor = new JPasswordField(22);
+        private final JPasswordField campoComida = new JPasswordField(22);
+        private final JPasswordField campoNueva = new JPasswordField(22);
+        private final JPasswordField campoConfirmacion = new JPasswordField(22);
+        private final JCheckBox mostrarRespuestas = new JCheckBox("Mostrar respuestas");
+        private final JCheckBox mostrarNueva = new JCheckBox("Mostrar contraseña");
+        private final JButton botonRespuestas;
+        private final JButton botonRestablecer = new BotonRedondeado("Restablecer contraseña");
+        private final JButton cancelar = new BotonRedondeado("Cancelar");
+        private final JLabel error = new JLabel(" ");
+        private final JLabel titulo = new JLabel();
+        private final JLabel detalle = new JLabel();
+        private final CardLayout tarjetas = new CardLayout();
+        private final JPanel contenido = new JPanel(tarjetas);
+        private boolean procesando;
+
+        private DialogoRecuperacion(LoginView padre, boolean configuracion, String usuario) {
+            super(padre, configuracion ? "Configurar recuperación" : "Recuperar contraseña", true);
+            this.configuracion = configuracion;
+            botonRespuestas = new BotonRedondeado(configuracion ? "Guardar respuestas" : "Verificar respuestas");
+            setDefaultCloseOperation(DISPOSE_ON_CLOSE); setResizable(false);
+            JPanel base = new JPanel(new BorderLayout(0, 16));
+            base.setBackground(Color.WHITE);
+            base.setBorder(BorderFactory.createEmptyBorder(24, 30, 22, 30));
+            JPanel encabezado = new JPanel(); encabezado.setOpaque(false);
+            encabezado.setLayout(new BoxLayout(encabezado, BoxLayout.Y_AXIS));
+            JLabel marca = new JLabel("Salud Vida", new MarcaIcon(30), SwingConstants.LEFT);
+            marca.setIconTextGap(9); marca.setFont(new Font("SansSerif", Font.BOLD, 16));
+            marca.setForeground(AZUL_OSCURO);
+            titulo.setFont(new Font("SansSerif", Font.BOLD, 23)); titulo.setForeground(AZUL_OSCURO);
+            detalle.setFont(new Font("SansSerif", Font.PLAIN, 12)); detalle.setForeground(TEXTO_SECUNDARIO);
+            JLabel cuenta = new JLabel("Cuenta: " + usuario);
+            cuenta.setFont(new Font("SansSerif", Font.PLAIN, 12)); cuenta.setForeground(TEXTO_SECUNDARIO);
+            encabezado.add(marca); encabezado.add(Box.createVerticalStrut(17));
+            encabezado.add(titulo); encabezado.add(Box.createVerticalStrut(9));
+            encabezado.add(detalle); encabezado.add(Box.createVerticalStrut(9)); encabezado.add(cuenta);
+            base.add(encabezado, BorderLayout.NORTH);
+
+            JPanel preguntas = formulario();
+            GridBagConstraints c = restricciones();
+            fila(preguntas, c, etiquetaDialogo("¿Cuál es tu color favorito?", campoColor), 0);
+            fila(preguntas, c, campoDialogo(campoColor), 1);
+            fila(preguntas, c, etiquetaDialogo("¿Cuál es tu comida favorita?", campoComida), 2);
+            fila(preguntas, c, campoDialogo(campoComida), 3);
+            fila(preguntas, c, mostrarRespuestas, 4);
+            prepararBoton(botonRespuestas); fila(preguntas, c, botonRespuestas, 5);
+            char ecoColor = campoColor.getEchoChar(), ecoComida = campoComida.getEchoChar();
+            prepararCasilla(mostrarRespuestas);
+            mostrarRespuestas.addActionListener(e -> {
+                campoColor.setEchoChar(mostrarRespuestas.isSelected() ? (char) 0 : ecoColor);
+                campoComida.setEchoChar(mostrarRespuestas.isSelected() ? (char) 0 : ecoComida);
+            });
+
+            JPanel nueva = formulario(); c = restricciones();
+            fila(nueva, c, etiquetaDialogo("Nueva contraseña", campoNueva), 0);
+            fila(nueva, c, campoDialogo(campoNueva), 1);
+            fila(nueva, c, etiquetaDialogo("Confirmar nueva contraseña", campoConfirmacion), 2);
+            fila(nueva, c, campoDialogo(campoConfirmacion), 3);
+            prepararCasilla(mostrarNueva);
+            fila(nueva, c, mostrarNueva, 4);
+            prepararBoton(botonRestablecer); fila(nueva, c, botonRestablecer, 5);
+            char ecoClave = campoNueva.getEchoChar();
+            mostrarNueva.addActionListener(e -> {
+                campoNueva.setEchoChar(mostrarNueva.isSelected() ? (char) 0 : ecoClave);
+                campoConfirmacion.setEchoChar(mostrarNueva.isSelected() ? (char) 0 : ecoClave);
+            });
+            contenido.setOpaque(false);
+            contenido.add(preguntas, "preguntas"); contenido.add(nueva, "nueva");
+            base.add(contenido, BorderLayout.CENTER);
+            JPanel pie = new JPanel(new BorderLayout(0, 8)); pie.setOpaque(false);
+            error.setForeground(ROJO); error.setFont(new Font("SansSerif", Font.PLAIN, 12));
+            error.setPreferredSize(new Dimension(390, 60));
+            cancelar.setFocusPainted(false); cancelar.setBackground(new Color(0xF1F5F9));
+            cancelar.setFont(new Font("SansSerif", Font.BOLD, 13));
+            cancelar.setForeground(AZUL_OSCURO);
+            cancelar.setPreferredSize(new Dimension(120, 35)); cancelar.addActionListener(e -> dispose());
+            pie.add(error, BorderLayout.CENTER); pie.add(cancelar, BorderLayout.SOUTH);
+            base.add(pie, BorderLayout.SOUTH);
+            titulo.setText(configuracion ? "Configura tus preguntas" : "Preguntas de seguridad");
+            detalle.setText(configuracion ? "Registra tus respuestas antes de olvidar la contraseña."
+                    : "Paso 1 de 2 · Responde ambas preguntas.");
+            getRootPane().setDefaultButton(botonRespuestas);
+            setContentPane(base); base.setPreferredSize(new Dimension(470, 560));
+            pack(); setLocationRelativeTo(padre);
+        }
+
+        private static JPanel formulario() {
+            JPanel p = new JPanel(new GridBagLayout()); p.setOpaque(false); return p;
+        }
+        private static GridBagConstraints restricciones() {
+            GridBagConstraints c = new GridBagConstraints();
+            c.gridx = 0; c.fill = GridBagConstraints.HORIZONTAL; c.weightx = 1;
+            c.insets = new Insets(4, 0, 4, 0); return c;
+        }
+        private static void fila(JPanel p, GridBagConstraints c, JComponent elemento, int n) {
+            c.gridy = n; p.add(elemento, c);
+        }
+        private static JLabel etiquetaDialogo(String texto, JComponent campo) {
+            JLabel l = new JLabel(texto); l.setLabelFor(campo); l.setForeground(AZUL_OSCURO);
+            l.setFont(new Font("SansSerif", Font.BOLD, 13)); return l;
+        }
+        private static JPasswordField campoDialogo(JPasswordField campo) {
+            campo.setFont(new Font("SansSerif", Font.PLAIN, 15));
+            campo.setForeground(AZUL_OSCURO); campo.setCaretColor(AZUL);
+            campo.setPreferredSize(new Dimension(390, 42));
+            campo.setBorder(bordeCampoDialogo(new Color(0xCADCF0)));
+            campo.addFocusListener(new FocusAdapter() {
+                @Override public void focusGained(FocusEvent e) { campo.setBorder(bordeCampoDialogo(AZUL)); }
+                @Override public void focusLost(FocusEvent e) { campo.setBorder(bordeCampoDialogo(new Color(0xCADCF0))); }
+            });
+            return campo;
+        }
+        private static javax.swing.border.Border bordeCampoDialogo(Color color) {
+            return BorderFactory.createCompoundBorder(new CampoBorde(color),
+                    BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        }
+        public char[] getColor() { return campoColor.getPassword(); }
+        public char[] getComida() { return campoComida.getPassword(); }
+        public char[] getNuevaClave() { return campoNueva.getPassword(); }
+        public char[] getConfirmacion() { return campoConfirmacion.getPassword(); }
+        public void alVerificar(ActionListener accion) { botonRespuestas.addActionListener(accion); }
+        public void alRestablecer(ActionListener accion) { botonRestablecer.addActionListener(accion); }
+        public boolean estaProcesando() { return procesando; }
+        public void mostrarError(String texto) { error.setText("<html>" + escapar(texto) + "</html>"); }
+        public void mostrarRestablecimiento() {
+            campoColor.setText(""); campoComida.setText(""); error.setText(" ");
+            titulo.setText("Restablecer contraseña");
+            detalle.setText("Paso 2 de 2 · Escribe una clave de 8 a 128 caracteres.");
+            tarjetas.show(contenido, "nueva");
+            getRootPane().setDefaultButton(botonRestablecer); campoNueva.requestFocusInWindow();
+        }
+        public void setProcesando(boolean valor) {
+            procesando = valor;
+            campoColor.setEnabled(!valor); campoComida.setEnabled(!valor);
+            campoNueva.setEnabled(!valor); campoConfirmacion.setEnabled(!valor);
+            mostrarRespuestas.setEnabled(!valor); mostrarNueva.setEnabled(!valor);
+            botonRespuestas.setEnabled(!valor); botonRestablecer.setEnabled(!valor); cancelar.setEnabled(!valor);
+            botonRespuestas.setText(valor ? "Verificando..." : configuracion ? "Guardar respuestas" : "Verificar respuestas");
+            botonRestablecer.setText(valor ? "Guardando..." : "Restablecer contraseña");
+            setDefaultCloseOperation(valor ? DO_NOTHING_ON_CLOSE : DISPOSE_ON_CLOSE);
+        }
+        @Override public void dispose() {
+            campoColor.setText(""); campoComida.setText(""); campoNueva.setText(""); campoConfirmacion.setText("");
+            super.dispose();
+        }
     }
 
     /** Isotipo de cruz y hoja recreado en Java2D para que no se pixele al escalar. */
@@ -266,6 +453,65 @@ public class LoginView extends JFrame {
         return imagen;
     }
 
+    /** Apariencia común de las casillas; conserva su comportamiento y teclado. */
+    private static void prepararCasilla(JCheckBox casilla) {
+        casilla.setOpaque(false);
+        casilla.setForeground(TEXTO_SECUNDARIO);
+        casilla.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        casilla.setIcon(new CasillaIcon());
+        casilla.setIconTextGap(8);
+        casilla.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+        casilla.setFocusPainted(false);
+        casilla.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    }
+
+    private static class CasillaIcon implements Icon {
+        public int getIconWidth() { return 20; }
+        public int getIconHeight() { return 20; }
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            AbstractButton boton = (AbstractButton)c;
+            Graphics2D p = (Graphics2D)g.create();
+            p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            boolean seleccionado = boton.isSelected();
+            p.setColor(!boton.isEnabled() ? new Color(0xE2E8F0) : seleccionado ? AZUL : Color.WHITE);
+            p.fillRoundRect(x + 1, y + 1, 17, 17, 6, 6);
+            p.setColor(!boton.isEnabled() ? new Color(0xCBD5E1) : seleccionado ? AZUL : TEXTO_SECUNDARIO);
+            p.setStroke(new BasicStroke(1.4f));
+            p.drawRoundRect(x + 1, y + 1, 17, 17, 6, 6);
+            if (seleccionado) {
+                p.setColor(Color.WHITE); p.setStroke(new BasicStroke(2));
+                p.drawLine(x + 5, y + 9, x + 8, y + 12);
+                p.drawLine(x + 8, y + 12, x + 14, y + 6);
+            }
+            if (boton.hasFocus()) {
+                p.setColor(AZUL); p.setStroke(new BasicStroke(1));
+                p.drawRoundRect(x, y, 19, 19, 7, 7);
+            }
+            p.dispose();
+        }
+    }
+
+    /** Botón redondeado sin línea interior; conserva estados de hover, presión y espera. */
+    private static class BotonRedondeado extends JButton {
+        BotonRedondeado(String texto) {
+            super(texto);
+            setOpaque(false); setContentAreaFilled(false); setBorderPainted(false);
+            setFocusPainted(false); setRolloverEnabled(true);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        }
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D p = (Graphics2D)g.create();
+            p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Color fondo = getBackground();
+            if (!isEnabled()) fondo = AZUL.equals(fondo) ? new Color(0x93B4F5) : new Color(0xE2E8F0);
+            else if (getModel().isPressed()) fondo = AZUL.equals(fondo) ? new Color(0x1E40AF) : new Color(0xCBD5E1);
+            else if (getModel().isRollover()) fondo = AZUL.equals(fondo) ? new Color(0x1D4ED8) : new Color(0xE2E8F0);
+            p.setColor(fondo); p.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+            p.dispose();
+            super.paintComponent(g);
+        }
+    }
+
     private static class CampoBorde extends AbstractBorder {
         private final Color color;
         CampoBorde(Color color) { this.color = color; }
@@ -276,7 +522,7 @@ public class LoginView extends JFrame {
         @Override public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
             Graphics2D p = (Graphics2D) g.create();
             p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            p.setColor(color); p.drawRoundRect(x, y, w - 1, h - 1, 9, 9); p.dispose();
+            p.setColor(color); p.drawRoundRect(x, y, w - 1, h - 1, 20, 20); p.dispose();
         }
     }
 

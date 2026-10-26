@@ -18,6 +18,10 @@ public class MenuAdministradorView extends JFrame {
 
     private CardLayout cardLayout;
     private JPanel panelContenido;
+    private controller.VencimientoController controladorVencimientos;
+    private controller.UsuarioController controladorUsuarios;
+    private final java.util.Map<String, JButton> botonesMenu = new java.util.LinkedHashMap<>();
+    private String pantallaActual = "Inicio";
 
     private final Color AZUL_OSCURO = new Color(30, 41, 59);
     private final Color AZUL = new Color(37, 99, 235);
@@ -37,6 +41,7 @@ public class MenuAdministradorView extends JFrame {
         this.alCerrarSesion = alCerrarSesion;
 
         setTitle("Salud Vida - Panel Administrador");
+        setIconImage(LoginView.crearIconoVentana());
         setSize(1100, 700);
         setMinimumSize(new Dimension(850, 550));
         setLocationRelativeTo(null);
@@ -56,7 +61,8 @@ public class MenuAdministradorView extends JFrame {
         menuLateral.setBackground(AZUL_OSCURO);
         menuLateral.setPreferredSize(new Dimension(230, 0));
 
-        JLabel logo = new JLabel("✚  SALUD VIDA");
+        JLabel logo = new JLabel("SALUD VIDA",new LoginView.MarcaIcon(32),SwingConstants.LEFT);
+        logo.setIconTextGap(10);
         logo.setForeground(Color.WHITE);
         logo.setFont(new Font("SansSerif", Font.BOLD, 22));
         logo.setBorder(
@@ -116,7 +122,7 @@ public class MenuAdministradorView extends JFrame {
         add(menuLateral, BorderLayout.WEST);
         add(panelContenido, BorderLayout.CENTER);
 
-        cardLayout.show(panelContenido, "Inicio");
+        mostrarPantalla("Inicio");
     }
 
     // BOTONES DEL MENU LATERAL
@@ -146,18 +152,38 @@ public class MenuAdministradorView extends JFrame {
 
             @Override
             public void mouseExited(MouseEvent e) {
-                boton.setBackground(AZUL_OSCURO);
+                boton.setBackground(nombre.equals(pantallaActual) ? AZUL : AZUL_OSCURO);
             }
         });
 
         boton.addActionListener(e ->
-                cardLayout.show(panelContenido, nombre));
+                mostrarPantalla(nombre));
 
+        botonesMenu.put(nombre, boton);
         contenedor.add(boton);
+    }
+
+    private void mostrarPantalla(String nombre) {
+        if (!sesion.estaActivo() || !sesion.estaEnSesion() || !sesion.esAdministrador()) {
+            throw new SecurityException("Se requiere una sesión de administrador.");
+        }
+        pantallaActual = nombre;
+        botonesMenu.forEach((clave, boton) -> boton.setBackground(clave.equals(nombre) ? AZUL : AZUL_OSCURO));
+        cardLayout.show(panelContenido, nombre);
+        if (nombre.equals("Usuarios")) controladorUsuarios.actualizar();
+        if (nombre.equals("Reportes")) {
+            controladorVencimientos.actualizar();
+        }
     }
 
     // CREAR PANTALLAS
     private void crearPantalla(String nombre) {
+        if (nombre.equals("Usuarios")) {
+            UsuarioView vistaUsuarios = new UsuarioView();
+            controladorUsuarios = new controller.UsuarioController(sesion, vistaUsuarios);
+            panelContenido.add(vistaUsuarios, nombre);
+            return;
+        }
 
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(FONDO);
@@ -167,7 +193,7 @@ public class MenuAdministradorView extends JFrame {
         JLabel titulo = new JLabel(
                 nombre.equals("Inicio")
                 ? "Bienvenido, " + sesion.getNombreCompleto()
-                : nombre
+                : nombre.equals("Reportes") ? "Reporte de vencimientos" : nombre
         );
 
         titulo.setFont(
@@ -177,6 +203,8 @@ public class MenuAdministradorView extends JFrame {
         JLabel descripcion = new JLabel(
                 nombre.equals("Inicio")
                 ? "Sistema de gestión de farmacia Salud Vida"
+                : nombre.equals("Reportes")
+                ? "Consulta las fechas de vencimiento de los medicamentos"
                 : "Módulo de " + nombre + " - Próximamente"
         );
 
@@ -213,6 +241,12 @@ public class MenuAdministradorView extends JFrame {
         if (nombre.equals("Ventas")) {
             VentaView vistaVentas = new VentaView(sesion);
             panel.add(vistaVentas, BorderLayout.CENTER);
+        }
+
+        if (nombre.equals("Reportes")) {
+            VencimientoView vistaVencimientos = new VencimientoView();
+            controladorVencimientos = new controller.VencimientoController(sesion, vistaVencimientos);
+            panel.add(vistaVencimientos, BorderLayout.CENTER);
         }
 
         panelContenido.add(panel, nombre);
@@ -425,7 +459,7 @@ public class MenuAdministradorView extends JFrame {
         });
 
         acceder.addActionListener(e ->
-                cardLayout.show(panelContenido, nombre));
+                mostrarPantalla(nombre));
 
         tarjeta.add(centro, BorderLayout.CENTER);
         tarjeta.add(acceder, BorderLayout.SOUTH);

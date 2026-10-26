@@ -22,10 +22,106 @@ public class GestorUsuarios {
     private static final String USUARIO_INICIAL = "admin";
     private static final String CLAVE_INICIAL = "Farmacia2026!";
 
-    public static void inicializarAdministrador()
+    /** Permiso temporal de un solo uso, creado únicamente al acertar ambas respuestas. */
+    public static final class Recuperacion {
+        private final String usuario;
+        private final String version;
+        private final long vence;
+        private boolean usado;
+
+        private Recuperacion(Usuario cuenta) {
+            usuario = cuenta.getNombreUsuario();
+            version = cuenta.versionRecuperacion();
+            vence = System.currentTimeMillis() + 5 * 60_000;
+        }
+    }
+
+    public static synchronized void configurarRecuperacion(Usuario sesion, char[] color, char[] comida)
+            throws IOException, GeneralSecurityException {
+        if (sesion == null || !sesion.esAdministrador() || !sesion.estaActivo()
+                || !sesion.estaEnSesion()) {
+            throw new SecurityException("Debes iniciar sesión como administrador para configurar las respuestas.");
+        }
+        List<Usuario> cuentas = cargar();
+        Usuario cuenta = buscar(cuentas, sesion.getNombreUsuario());
+        if (!administradorActivo(cuenta) || !cuenta.mismaCredencial(sesion)) {
+            throw new SecurityException("La sesión ya no es válida. Inicia sesión nuevamente.");
+        }
+        if (cuenta.tieneRecuperacion()) {
+            throw new IllegalStateException("Las preguntas de esta cuenta ya están configuradas.");
+        }
+        cuenta.configurarRecuperacion(color, comida);
+        guardar(cuentas);
+        sesion.copiarRecuperacionDesde(cuenta);
+    }
+
+    public static synchronized Recuperacion verificarRecuperacion(String nombre,
+            char[] color, char[] comida) throws IOException, GeneralSecurityException {
+        // Se validan los campos antes de contar un intento.
+        char[] c = Usuario.normalizarRespuesta(color);
+        char[] m = null;
+        try {
+            m = Usuario.normalizarRespuesta(comida);
+        } finally {
+            Arrays.fill(c, '\0');
+            if (m != null) Arrays.fill(m, '\0');
+        }
+        List<Usuario> cuentas = cargar();
+        Usuario cuenta = buscar(cuentas, normalizarUsuario(nombre));
+        if (!administradorActivo(cuenta) || !cuenta.tieneRecuperacion()) return null;
+        long ahora = System.currentTimeMillis();
+        if (cuenta.getRecuperacionBloqueadaHasta() > ahora) {
+            long segundos = (cuenta.getRecuperacionBloqueadaHasta() - ahora + 999) / 1000;
+            throw new IllegalStateException("Espera " + segundos + " segundos antes de intentar recuperar la contraseña.");
+        }
+        if (!cuenta.comprobarRespuestas(color, comida)) {
+            boolean bloqueado = cuenta.registrarFalloRecuperacion(ahora);
+            guardar(cuentas);
+            if (bloqueado) throw new IllegalStateException(
+                    "Se agotaron los 3 intentos. Espera 30 segundos para volver a intentarlo.");
+            return null;
+        }
+        cuenta.limpiarIntentosRecuperacion();
+        guardar(cuentas);
+        return new Recuperacion(cuenta);
+    }
+
+    public static synchronized void restablecerContrasena(Recuperacion permiso,
+            char[] nueva, char[] confirmacion) throws IOException, GeneralSecurityException {
+        if (permiso == null || permiso.usado || System.currentTimeMillis() >= permiso.vence) {
+            throw new SecurityException("Verifica nuevamente las preguntas para restablecer la contraseña.");
+        }
+        if (nueva == null || nueva.length < 8 || nueva.length > 128) {
+            throw new IllegalArgumentException("La contraseña debe tener de 8 a 128 caracteres.");
+        }
+        if (!Arrays.equals(nueva, confirmacion)) {
+            throw new IllegalArgumentException("Las contraseñas no coinciden.");
+        }
+        List<Usuario> cuentas = cargar();
+        Usuario cuenta = buscar(cuentas, permiso.usuario);
+        if (!administradorActivo(cuenta) || !cuenta.tieneRecuperacion()
+                || !cuenta.versionRecuperacion().equals(permiso.version)) {
+            throw new SecurityException("La cuenta cambió. Verifica nuevamente las preguntas.");
+        }
+        cuenta.cambiarClave(nueva);
+        cuenta.cerrarSesion();
+        cuenta.limpiarIntentosRecuperacion();
+        guardar(cuentas);
+        permiso.usado = true;
+    }
+
+    private static String normalizarUsuario(String nombre) {
+        return nombre == null ? "" : nombre.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean administradorActivo(Usuario cuenta) {
+        return cuenta != null && cuenta.esAdministrador() && cuenta.estaActivo();
+    }
+
+    public static synchronized void inicializarAdministrador()
             throws IOException, GeneralSecurityException {
         Files.createDirectories(ARCHIVO.toAbsolutePath().getParent());
-        if (Files.exists(ARCHIVO)) return;
+        if (Files.exists(ARCHIVO)) { cargar(); return; }
         char[] clave = CLAVE_INICIAL.toCharArray();
         try {
             List<Usuario> cuentas = new ArrayList<>();
@@ -38,7 +134,7 @@ public class GestorUsuarios {
     }
 
     /** Validación compartida por la consola y el formulario Swing. */
-    public static Usuario iniciarSesion(String nombre, char[] clave)
+    public static synchronized Usuario iniciarSesion(String nombre, char[] clave)
             throws IOException, GeneralSecurityException {
         if (nombre == null || nombre.isBlank() || clave == null || clave.length == 0) {
             return null;
@@ -112,6 +208,9 @@ public class GestorUsuarios {
                     if (buscar(cuentas, cuenta.getNombreUsuario()) != null) {
                         throw new IllegalArgumentException("Usuario repetido");
                     }
+                    if (cuenta.getId() > 0 && cuentas.stream().anyMatch(u -> u.getId() == cuenta.getId())) {
+                        throw new IllegalArgumentException("ID repetido");
+                    }
                     cuentas.add(cuenta);
                 } catch (IllegalArgumentException e) {
                     throw new IOException("Datos inválidos en usuarios.txt, línea "
@@ -119,10 +218,33 @@ public class GestorUsuarios {
                 }
             }
         }
+        if (cuentas.stream().anyMatch(u -> u.getId() == 0)) {
+            asignarIds(cuentas);
+            Path respaldo = ARCHIVO.resolveSibling("usuarios.antes-gestion.bak");
+            if (!Files.exists(respaldo)) Files.copy(ARCHIVO, respaldo);
+            guardar(cuentas);
+        }
         return cuentas;
     }
 
+    private static void asignarIds(List<Usuario> cuentas) throws IOException {
+        long siguiente = (long) cuentas.stream().mapToInt(Usuario::getId).max().orElse(0) + 1;
+        for (Usuario cuenta : cuentas) {
+            if (cuenta.getId() == 0) {
+                if (siguiente > Integer.MAX_VALUE) throw new IOException("Se agotaron los IDs de usuarios.");
+                cuenta.asignarId((int) siguiente++);
+            }
+        }
+    }
+
     private static void guardar(List<Usuario> cuentas) throws IOException {
+        asignarIds(cuentas);
+        // Respaldo único antes de ampliar el formato; nunca se reemplazan las cuentas por ejemplos.
+        Path respaldo = ARCHIVO.resolveSibling("usuarios.antes-recuperacion.bak");
+        if (Files.exists(ARCHIVO) && !Files.exists(respaldo)
+                && cuentas.stream().anyMatch(Usuario::tieneRecuperacion)) {
+            Files.copy(ARCHIVO, respaldo);
+        }
         Path temporal = Files.createTempFile(ARCHIVO.toAbsolutePath().getParent(),
                 "usuarios-", ".tmp");
         try {
@@ -149,6 +271,107 @@ public class GestorUsuarios {
             if (cuenta.getNombreUsuario().equals(nombreUsuario)) return cuenta;
         }
         return null;
+    }
+
+    /** Datos públicos de una cuenta; nunca incluye claves ni respuestas. */
+    public record FichaUsuario(int id, String nombre, String usuario, Rol rol, boolean activo) { }
+
+    private static Usuario validarAdministrador(Usuario sesion, List<Usuario> cuentas) {
+        if (sesion == null || !sesion.estaEnSesion() || !administradorActivo(sesion)) {
+            throw new SecurityException("Se requiere una sesión de administrador.");
+        }
+        Usuario actual = cuentas.stream().filter(u -> u.getId() == sesion.getId()).findFirst().orElse(null);
+        if (!administradorActivo(actual) || !actual.mismaCredencial(sesion)) {
+            throw new SecurityException("La sesión cambió. Vuelve a iniciar sesión.");
+        }
+        return actual;
+    }
+
+    public static synchronized List<FichaUsuario> listarUsuarios(Usuario sesion) throws IOException {
+        List<Usuario> cuentas = cargar();
+        validarAdministrador(sesion, cuentas);
+        return cuentas.stream().map(u -> new FichaUsuario(u.getId(), u.getNombreCompleto(),
+                u.getNombreUsuario(), u.getRol(), u.estaActivo())).toList();
+    }
+
+    private static void validarDatos(String nombre, String usuario, Rol rol, List<Usuario> cuentas, int id) {
+        if (nombre == null || nombre.trim().isEmpty() || nombre.length() > 100
+                || nombre.contains(";") || nombre.indexOf('\n') >= 0 || nombre.indexOf('\r') >= 0) {
+            throw new IllegalArgumentException("Nombre: escribe de 1 a 100 caracteres, sin punto y coma ni saltos de línea.");
+        }
+        if (!usuario.matches("[a-z0-9._-]{3,20}")) {
+            throw new IllegalArgumentException("Usuario: utiliza de 3 a 20 letras, números, punto, guion o guion bajo.");
+        }
+        if (rol == null || (!rol.equals(Rol.ADMINISTRADOR) && !rol.equals(Rol.ENCARGADO))) {
+            throw new IllegalArgumentException("Selecciona un rol válido.");
+        }
+        if (cuentas.stream().anyMatch(u -> u.getId() != id && u.getNombreUsuario().equals(usuario))) {
+            throw new IllegalArgumentException("Usuario: ese nombre de usuario ya existe, incluso si está inactivo.");
+        }
+    }
+
+    private static void validarConfirmacion(char[] clave, char[] confirmacion) {
+        if (clave == null || clave.length < 8 || clave.length > 128) {
+            throw new IllegalArgumentException("Contraseña: debe tener de 8 a 128 caracteres.");
+        }
+        if (!Arrays.equals(clave, confirmacion)) {
+            throw new IllegalArgumentException("Confirmación: las contraseñas no coinciden.");
+        }
+    }
+
+    public static synchronized void registrarUsuario(Usuario sesion, String nombre, String usuario,
+            Rol rol, char[] clave, char[] confirmacion) throws IOException, GeneralSecurityException {
+        List<Usuario> cuentas = cargar();
+        validarAdministrador(sesion, cuentas);
+        String normalizado = normalizarUsuario(usuario);
+        validarDatos(nombre, normalizado, rol, cuentas, 0);
+        validarConfirmacion(clave, confirmacion);
+        cuentas.add(Usuario.crear(normalizado, nombre.trim(), rol, clave));
+        guardar(cuentas);
+    }
+
+    public static synchronized void actualizarUsuario(Usuario sesion, int id, String nombre, String usuario,
+            Rol rol, char[] clave, char[] confirmacion) throws IOException, GeneralSecurityException {
+        List<Usuario> cuentas = cargar();
+        Usuario administrador = validarAdministrador(sesion, cuentas);
+        Usuario anterior = cuentas.stream().filter(u -> u.getId() == id).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("La cuenta ya no existe. Actualiza la tabla."));
+        String normalizado = normalizarUsuario(usuario);
+        validarDatos(nombre, normalizado, rol, cuentas, id);
+        if (id == administrador.getId() && !rol.esAdministrador()) {
+            throw new IllegalArgumentException("No puedes quitar el rol de administrador a tu propia cuenta.");
+        }
+        if (anterior.esAdministrador() && anterior.estaActivo() && !rol.esAdministrador()
+                && cuentas.stream().filter(u -> u.esAdministrador() && u.estaActivo()).count() <= 1) {
+            throw new IllegalArgumentException("Debe quedar al menos un administrador activo.");
+        }
+        Usuario editado = anterior.conRol(rol);
+        editado.setNombreCompleto(nombre.trim());
+        editado.setNombreUsuario(normalizado);
+        if (clave == null || confirmacion == null) throw new IllegalArgumentException("Revisa los campos de contraseña.");
+        if (clave.length > 0 || confirmacion.length > 0) {
+            validarConfirmacion(clave, confirmacion);
+            editado.cambiarClave(clave);
+        }
+        cuentas.set(cuentas.indexOf(anterior), editado);
+        guardar(cuentas);
+        if (id == administrador.getId()) sesion.sincronizarDatos(editado);
+    }
+
+    public static synchronized void cambiarEstadoUsuario(Usuario sesion, int id, boolean activo) throws IOException {
+        List<Usuario> cuentas = cargar();
+        Usuario administrador = validarAdministrador(sesion, cuentas);
+        Usuario cuenta = cuentas.stream().filter(u -> u.getId() == id).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("La cuenta ya no existe. Actualiza la tabla."));
+        if (!activo && id == administrador.getId()) {
+            throw new IllegalArgumentException("No puedes desactivar tu propia cuenta.");
+        }
+        if (!activo && cuenta.esAdministrador() && cuenta.estaActivo()
+                && cuentas.stream().filter(u -> u.esAdministrador() && u.estaActivo()).count() <= 1) {
+            throw new IllegalArgumentException("Debe quedar al menos un administrador activo.");
+        }
+        cuenta.setActivo(activo);
+        guardar(cuentas);
     }
 
     private static String leerNombre(Scanner teclado, String mensaje) {

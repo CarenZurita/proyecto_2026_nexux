@@ -18,6 +18,7 @@ public class Administrador extends Usuario {
                                      MedicamentoRepository medicamentos)
             throws IOException {
         validarPermiso("GESTIONAR_MEDICAMENTOS");
+        
         medicamentos.registrar(medicamento);
     }
 
