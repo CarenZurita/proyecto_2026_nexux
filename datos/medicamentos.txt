@@ -1,3 +1,7 @@
+Acido Valproico;12A3456;Antibiótico;Tabletas;INTI;50;2027-12-12
+Paracetamol;12D34F5;Antiinflamatorio;Tabletas;INTI;30;2027-12-12
 Paracetamol;DEMO-001;Analgésico;Tabletas;Genérico;20;2028-12-31;5.0;5;DemoFarma
 Amoxicilina;DEMO-002;Antibiótico;Cápsulas;Genérico;15;2028-12-31;8.5;4;DemoFarma
 Ibuprofeno;DEMO-003;Antiinflamatorio;Tabletas;Genérico;18;2029-06-30;6.0;5;DemoFarma
+Amoxicilina;J0106;Antiinflamatorio;Tabletas;INTI;50;2027-12-12
+Ibuprofeno;MODES12;Antiinflamatorio;Tabletas;INTI;11;2027-02-12
