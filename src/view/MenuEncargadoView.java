@@ -1,11 +1,33 @@
 package view;
 
-import java.awt.*;
+import java.awt.BasicStroke;
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.RenderingHints;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.swing.*;
+
+import javax.swing.BorderFactory;
+import javax.swing.Icon;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.SwingConstants;
+
 import model.Rol;
 import model.Usuario;
 
@@ -114,17 +136,13 @@ public class MenuEncargadoView extends JFrame {
         centro.add(accesos, BorderLayout.NORTH); inicio.add(centro, BorderLayout.CENTER);
         panelContenido.add(inicio, "Inicio");
 
-        JPanel medicamentos = crearBase("Medicamentos", "Consulta del inventario y control de vencimientos");
-        JPanel operaciones = new JPanel(new GridLayout(3, 1, 0, 14)); operaciones.setOpaque(false);
-        operaciones.add(crearOperacion("Buscar medicamento", "Localiza medicamentos por nombre o código."));
-        operaciones.add(crearOperacion("Consultar stock", "Revisa la cantidad disponible de un medicamento."));
-        operaciones.add(crearOperacion("Revisar vencimientos", "Consulta medicamentos vencidos y próximos a vencer."));
-        medicamentos.add(operaciones, BorderLayout.CENTER); panelContenido.add(medicamentos, "Medicamentos");
+        JPanel medicamentos = new JPanel(new BorderLayout());
+        medicamentos.add(new MedicamentoView(sesion), BorderLayout.CENTER);
+        panelContenido.add(medicamentos, "Medicamentos");
 
         JPanel ventas = crearBase("Ventas", "Registro de ventas de farmacia");
         JPanel caja = new JPanel(new BorderLayout()); caja.setOpaque(false);
-        JPanel registro = crearOperacion("Registrar venta", "Registra la venta de medicamentos y verifica el stock.");
-        registro.setPreferredSize(new Dimension(0, 160)); caja.add(registro, BorderLayout.NORTH);
+        caja.add(new VentaView(sesion), BorderLayout.CENTER);
         ventas.add(caja, BorderLayout.CENTER); panelContenido.add(ventas, "Ventas");
     }
 

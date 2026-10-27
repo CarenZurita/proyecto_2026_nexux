@@ -185,6 +185,12 @@ public class MenuAdministradorView extends JFrame {
             return;
         }
 
+        if (nombre.equals("Medicamentos")) {
+            MedicamentoView vistaMedicamentos = new MedicamentoView(sesion);
+            panelContenido.add(vistaMedicamentos, nombre);
+            return;
+        }
+
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(FONDO);
         panel.setBorder(
