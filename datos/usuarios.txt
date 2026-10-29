@@ -1,3 +1,3 @@
-admin;Administrador;ADMINISTRADOR;true;2egqS29GRlEikj/xz/43Lw==;4UHyvOGLtBSWuVUNJJuEeOUuVZkM6BSRqzZvLCkTMGo=;axoGbHEuA3QFX9V7Lmpnbg==;GovnGkBx3zeOXuQONO6fudqbyYuKUGh+LO9to0qUHiE=;EGvpEi/HKJA8P8KJ2Y+8Ig==;L3fWicTnyiiBRcq80EjlobMuF6CaNvO1mDbYmODAqiw=;0;0;1
+admin;Administrador;ADMINISTRADOR;true;LRpiTqCO/g4TYW8PxZlXjQ==;HRtWjhJcaAdfd2NE2cpnm08DUUK5LdLK54pzhTAJsRg=;eVOW+Y4mEDffHksjE3ISSQ==;Ms/rYtX6VKjoSp9pXOzLA39q4tbq72NdOlUvzKKSzRE=;FurPqBPV4sANHC5Zm2dgOg==;VkVKUhXifrKYHRj81hvySiXWrzAT7OYmeS2s4bondA0=;0;0;1
 adrian1;adrian vargas;ENCARGADO;true;WfcVsCwJNrfbH0lnm3aUxQ==;h31fGIPHbqBPg/iHwxKPpbz59zPeQ75qI/xymQt8/a8=;2
 ramiro1;ramiro vargas;ENCARGADO;true;T9GqE+JF2sOz3vIknzwlSA==;wD2o6yIP3wMddmpX9YWQXv4zCeWImVC18OBkUTXQD9k=;3
