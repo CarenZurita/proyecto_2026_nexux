@@ -19,10 +19,11 @@ public class VencimientoView extends JPanel {
     private static final Color AMARILLO = new Color(0x854D0E);
     private static final Color VERDE = new Color(0x166534);
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private final JButton actualizar = new JButton("Actualizar");
+    private final JButton actualizar = new ComponentesRedondeados.Boton("Actualizar");
     private final JLabel resumen = new JLabel(" ");
     private final JTextArea mensaje = new JTextArea("Abre Reportes para consultar el inventario.");
-    private final JPanel aviso = new JPanel(new BorderLayout(12, 0));
+    private final JPanel aviso = new ComponentesRedondeados.Panel(
+            new BorderLayout(12, 0), new Color(0xEFF6FF), 24, new Color(0xBFDBFE));
     private final JLabel iconoAviso = new JLabel(new AvisoIcon());
     private final DefaultTableModel modelo = new DefaultTableModel(
             new String[]{"Nombre", "Presentación", "Fecha de vencimiento", "Días restantes"}, 0) {
@@ -87,9 +88,7 @@ public class VencimientoView extends JPanel {
         leyenda.add(etiqueta("Amarillo: 11–20 días", AMARILLO));
         leyenda.add(etiqueta("Verde: 21 días o más", VERDE));
         pie.add(leyenda, BorderLayout.NORTH);
-        aviso.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0xBFDBFE)),
-                BorderFactory.createEmptyBorder(18, 18, 18, 18)));
+        aviso.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
         aviso.setBackground(new Color(0xEFF6FF));
         mensaje.setEditable(false);
         mensaje.setLineWrap(true);
@@ -123,6 +122,7 @@ public class VencimientoView extends JPanel {
     }
 
     public void mostrarDatos(List<VencimientoService.Fila> filas) {
+        int diasAviso = VencimientoService.DIAS_ALERTA;
         modelo.setRowCount(0);
         long vencidos = 0;
         long proximos = 0;
@@ -130,17 +130,17 @@ public class VencimientoView extends JPanel {
             modelo.addRow(new Object[]{fila.nombre(), fila.presentacion(),
                     fila.fechaVencimiento(), fila.diasRestantes()});
             if (fila.diasRestantes() < 0) vencidos++;
-            else if (fila.diasRestantes() <= VencimientoService.DIAS_ALERTA) proximos++;
+            else if (fila.diasRestantes() <= diasAviso) proximos++;
         }
         resumen.setText(filas.size() + " medicamentos · Ordenados por vencimiento");
         if (filas.isEmpty()) {
             mostrarAviso("No hay medicamentos registrados para generar el reporte.", false);
         } else if (vencidos == 0 && proximos == 0) {
             mostrarAviso("No existen medicamentos próximos a vencer ni vencidos. "
-                    + "Se revisan los próximos " + VencimientoService.DIAS_ALERTA + " días.", false);
+                    + "Se revisan los próximos " + diasAviso + " días.", false);
         } else {
             mostrarAviso("Medicamentos vencidos: " + vencidos
-                    + ". Próximos a vencer (0–" + VencimientoService.DIAS_ALERTA
+                    + ". Próximos a vencer (0–" + diasAviso
                     + " días): " + proximos + ".", true);
         }
     }

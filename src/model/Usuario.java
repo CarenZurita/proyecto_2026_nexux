@@ -303,7 +303,11 @@ public abstract class Usuario {
                                MedicamentoRepository medicamentos,
                                VentaRepository ventas) throws IOException {
         validarSesionActiva();
-        new Venta(codigo, cantidad).registrar(this, medicamentos, ventas);
+        Medicamento medicamento = medicamentos.buscarPorCodigo(codigo)
+                .orElseThrow(() -> new IllegalArgumentException("Medicamento no encontrado."));
+        Venta venta = new Venta(this);
+        venta.agregarDetalle(new DetalleVenta(medicamento, cantidad));
+        venta.registrar(this, medicamentos, ventas);
     }
 
     public List<Medicamento> revisarVencimientos(MedicamentoRepository medicamentos)

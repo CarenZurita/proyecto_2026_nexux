@@ -110,6 +110,24 @@ public class GestorUsuarios {
         permiso.usado = true;
     }
 
+    public static synchronized void cambiarMiClave(Usuario sesion, char[] actual, char[] nueva, char[] confirmar) throws IOException, GeneralSecurityException {
+        List<Usuario> cuentas = cargar();
+        Usuario cuenta = validarAdministrador(sesion, cuentas);
+        if (!cuenta.comprobarClave(actual)) throw new SecurityException("Contraseña actual incorrecta.");
+        validarConfirmacion(nueva, confirmar);
+        cuenta.cambiarClave(nueva);
+        guardar(cuentas);
+        sesion.sincronizarDatos(cuenta);
+    }
+    public static synchronized void actualizarMisPreguntas(Usuario sesion, char[] actual, char[] color, char[] comida) throws IOException, GeneralSecurityException {
+        List<Usuario> cuentas = cargar();
+        Usuario cuenta = validarAdministrador(sesion, cuentas);
+        if (!cuenta.comprobarClave(actual)) throw new SecurityException("Contraseña actual incorrecta.");
+        cuenta.configurarRecuperacion(color, comida);
+        guardar(cuentas);
+        sesion.copiarRecuperacionDesde(cuenta);
+    }
+
     private static String normalizarUsuario(String nombre) {
         return nombre == null ? "" : nombre.trim().toLowerCase(Locale.ROOT);
     }

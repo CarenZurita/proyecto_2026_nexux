@@ -11,7 +11,6 @@ import service.UsuarioService;
 import view.UsuarioFormDialog;
 import view.UsuarioView;
 
-/** Coordina los modales y ejecuta lectura, hash y escritura fuera del hilo gráfico. */
 public class UsuarioController {
     private final Usuario sesion;
     private final UsuarioView vista;

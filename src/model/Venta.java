@@ -24,6 +24,7 @@ public class Venta {
     private transient VentaRepository repositorioVentas;
     private boolean registrada;
     private boolean cancelada;
+    private boolean importesRegistrados = true;
 
     public Venta(Usuario usuario) {
         this.usuario = Objects.requireNonNull(usuario, "El usuario es obligatorio.");
@@ -214,6 +215,11 @@ public class Venta {
         return fecha;
     }
 
+    /** Los registros antiguos no guardaban precios; cero no significa venta gratuita. */
+    public boolean tieneImportesRegistrados() {
+        return importesRegistrados;
+    }
+
     public double getTotal() {
         return total;
     }
@@ -301,6 +307,7 @@ public class Venta {
                     "Sin categoría", "Sin presentación", "Sin laboratorio",
                     cantidad, "9999-12-31");
             Venta venta = new Venta(fecha, "");
+            venta.importesRegistrados = false;
             venta.detalles.add(new DetalleVenta(medicamento, cantidad));
             venta.total = venta.calcularTotal();
             venta.registrada = true;

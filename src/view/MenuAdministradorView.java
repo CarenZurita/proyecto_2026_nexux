@@ -18,8 +18,10 @@ public class MenuAdministradorView extends JFrame {
 
     private CardLayout cardLayout;
     private JPanel panelContenido;
+    private MedicamentoView vistaMedicamentos;
     private controller.VencimientoController controladorVencimientos;
     private controller.UsuarioController controladorUsuarios;
+    private controller.ReporteVentasController controladorReporteVentas;
     private final java.util.Map<String, JButton> botonesMenu = new java.util.LinkedHashMap<>();
     private String pantallaActual = "Inicio";
 
@@ -55,9 +57,10 @@ public class MenuAdministradorView extends JFrame {
         });
 
         setLayout(new BorderLayout());
+        getContentPane().setBackground(FONDO);
 
         // PANEL LATERAL
-        JPanel menuLateral = new JPanel(new BorderLayout());
+        JPanel menuLateral = new ComponentesRedondeados.Panel(new BorderLayout(), AZUL_OSCURO, 30);
         menuLateral.setBackground(AZUL_OSCURO);
         menuLateral.setPreferredSize(new Dimension(230, 0));
 
@@ -96,7 +99,9 @@ public class MenuAdministradorView extends JFrame {
         menuLateral.add(botones, BorderLayout.CENTER);
 
         // CERRAR SESION
-        JButton cerrarSesion = new JButton("Cerrar sesión");
+        JButton cerrarSesion = new ComponentesRedondeados.Boton("Cerrar sesión",
+                new ComponentesRedondeados.IconoModulo("salir", 24));
+        cerrarSesion.setIconTextGap(10);
         cerrarSesion.setBackground(new Color(239, 68, 68));
         cerrarSesion.setForeground(Color.WHITE);
         cerrarSesion.setFont(
@@ -128,7 +133,9 @@ public class MenuAdministradorView extends JFrame {
     // BOTONES DEL MENU LATERAL
     private void agregarBoton(JPanel contenedor, String nombre) {
 
-        JButton boton = new JButton(nombre);
+        JButton boton = new ComponentesRedondeados.Boton(nombre,
+                new ComponentesRedondeados.IconoModulo(nombre, 32));
+        boton.setIconTextGap(10);
 
         boton.setFont(
                 new Font("SansSerif", Font.BOLD, 15));
@@ -139,7 +146,7 @@ public class MenuAdministradorView extends JFrame {
         boton.setBorderPainted(false);
         boton.setHorizontalAlignment(SwingConstants.LEFT);
         boton.setBorder(
-                BorderFactory.createEmptyBorder(12, 18, 12, 10));
+                BorderFactory.createEmptyBorder(12, 12, 12, 8));
         boton.setCursor(
                 new Cursor(Cursor.HAND_CURSOR));
 
@@ -170,14 +177,20 @@ public class MenuAdministradorView extends JFrame {
         pantallaActual = nombre;
         botonesMenu.forEach((clave, boton) -> boton.setBackground(clave.equals(nombre) ? AZUL : AZUL_OSCURO));
         cardLayout.show(panelContenido, nombre);
+        if (nombre.equals("Medicamentos")) vistaMedicamentos.recargar();
         if (nombre.equals("Usuarios")) controladorUsuarios.actualizar();
         if (nombre.equals("Reportes")) {
             controladorVencimientos.actualizar();
+            controladorReporteVentas.actualizar();
         }
     }
 
     // CREAR PANTALLAS
     private void crearPantalla(String nombre) {
+        if (nombre.equals("Configuracion")) {
+            panelContenido.add(new ConfiguracionView(sesion), nombre);
+            return;
+        }
         if (nombre.equals("Usuarios")) {
             UsuarioView vistaUsuarios = new UsuarioView();
             controladorUsuarios = new controller.UsuarioController(sesion, vistaUsuarios);
@@ -186,7 +199,7 @@ public class MenuAdministradorView extends JFrame {
         }
 
         if (nombre.equals("Medicamentos")) {
-            MedicamentoView vistaMedicamentos = new MedicamentoView(sesion);
+            vistaMedicamentos = new MedicamentoView(sesion);
             panelContenido.add(vistaMedicamentos, nombre);
             return;
         }
@@ -199,7 +212,8 @@ public class MenuAdministradorView extends JFrame {
         JLabel titulo = new JLabel(
                 nombre.equals("Inicio")
                 ? "Bienvenido, " + sesion.getNombreCompleto()
-                : nombre.equals("Reportes") ? "Reporte de vencimientos" : nombre
+                : nombre.equals("Ventas") ? "Registro de ventas"
+                : nombre.equals("Reportes") ? "Reportes" : nombre
         );
 
         titulo.setFont(
@@ -210,7 +224,7 @@ public class MenuAdministradorView extends JFrame {
                 nombre.equals("Inicio")
                 ? "Sistema de gestión de farmacia Salud Vida"
                 : nombre.equals("Reportes")
-                ? "Consulta las fechas de vencimiento de los medicamentos"
+                ? "Consulta los reportes de la farmacia"
                 : "Módulo de " + nombre + " - Próximamente"
         );
 
@@ -219,11 +233,12 @@ public class MenuAdministradorView extends JFrame {
         descripcion.setForeground(GRIS);
 
         JPanel encabezado = new JPanel(
-                new GridLayout(2, 1, 0, 10));
+                new GridLayout(nombre.equals("Ventas") ? 1 : 2, 1, 0, 10));
 
         encabezado.setOpaque(false);
         encabezado.add(titulo);
-        encabezado.add(descripcion);
+        if (!nombre.equals("Ventas")) encabezado.add(descripcion);
+        else panel.setLayout(new BorderLayout(0, 16));
 
         panel.add(encabezado, BorderLayout.NORTH);
 
@@ -252,7 +267,12 @@ public class MenuAdministradorView extends JFrame {
         if (nombre.equals("Reportes")) {
             VencimientoView vistaVencimientos = new VencimientoView();
             controladorVencimientos = new controller.VencimientoController(sesion, vistaVencimientos);
-            panel.add(vistaVencimientos, BorderLayout.CENTER);
+            ReporteVentasView vistaVentas = new ReporteVentasView();
+            controladorReporteVentas = new controller.ReporteVentasController(sesion, vistaVentas);
+            ReportesView reportes = new ReportesView(vistaVencimientos, vistaVentas);
+            reportes.alSeleccionarVencimientos(() -> controladorVencimientos.actualizar());
+            reportes.alSeleccionarVentas(() -> controladorReporteVentas.actualizar());
+            panel.add(reportes, BorderLayout.CENTER);
         }
 
         panelContenido.add(panel, nombre);
@@ -262,149 +282,38 @@ public class MenuAdministradorView extends JFrame {
     // CREAR TARJETAS CON ICONOS GRAFICOS
     private JPanel crearTarjeta(String nombre) {
 
-        Color colorIcono;
         String descripcion;
 
         switch (nombre) {
             case "Medicamentos":
-                colorIcono = new Color(16, 185, 129);
                 descripcion = "Inventario y medicamentos";
                 break;
 
             case "Ventas":
-                colorIcono = new Color(37, 99, 235);
                 descripcion = "Registro y control de ventas";
                 break;
 
             case "Usuarios":
-                colorIcono = new Color(139, 92, 246);
                 descripcion = "Administración de usuarios";
                 break;
 
             case "Reportes":
-                colorIcono = new Color(245, 158, 11);
                 descripcion = "Estadísticas e informes";
                 break;
 
             default:
-                colorIcono = AZUL;
                 descripcion = "Administración del sistema";
                 break;
         }
 
-        JPanel tarjeta = new JPanel(new BorderLayout(0, 12));
+        JPanel tarjeta = new ComponentesRedondeados.Panel(new BorderLayout(0, 12),
+                Color.WHITE, 32, new Color(226, 232, 240));
         tarjeta.setBackground(Color.WHITE);
-        tarjeta.setBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                new Color(226, 232, 240), 1),
-                        BorderFactory.createEmptyBorder(
-                                18, 20, 18, 20)
-                )
-        );
+        tarjeta.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
 
-        // PANEL QUE DIBUJA EL ICONO
-        JPanel icono = new JPanel() {
-
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-
-                Graphics2D g2 = (Graphics2D) g.create();
-
-                g2.setRenderingHint(
-                        RenderingHints.KEY_ANTIALIASING,
-                        RenderingHints.VALUE_ANTIALIAS_ON);
-
-                int cx = getWidth() / 2;
-                int cy = getHeight() / 2;
-
-                // Fondo circular
-                g2.setColor(new Color(
-                        colorIcono.getRed(),
-                        colorIcono.getGreen(),
-                        colorIcono.getBlue(), 28));
-
-                g2.fillOval(cx - 48, cy - 48, 96, 96);
-
-                g2.setColor(colorIcono);
-                g2.setStroke(new BasicStroke(
-                        5, BasicStroke.CAP_ROUND,
-                        BasicStroke.JOIN_ROUND));
-
-                if (nombre.equals("Medicamentos")) {
-
-                    // Capsula diagonal
-                    Graphics2D capsula =
-                            (Graphics2D) g2.create();
-
-                    capsula.rotate(
-                            Math.toRadians(-35), cx, cy);
-
-                    capsula.drawRoundRect(
-                            cx - 30, cy - 14, 60, 28, 28, 28);
-
-                    capsula.drawLine(
-                            cx, cy - 14, cx, cy + 14);
-
-                    capsula.dispose();
-
-                } else if (nombre.equals("Ventas")) {
-
-                    // Carrito de compras
-                    g2.drawLine(cx - 33, cy - 26,
-                                cx - 24, cy - 26);
-
-                    g2.drawLine(cx - 24, cy - 26,
-                                cx - 14, cy + 13);
-
-                    g2.drawLine(cx - 14, cy + 13,
-                                cx + 28, cy + 13);
-
-                    g2.drawLine(cx - 18, cy - 16,
-                                cx + 34, cy - 16);
-
-                    g2.drawLine(cx + 34, cy - 16,
-                                cx + 26, cy + 4);
-
-                    g2.drawLine(cx + 26, cy + 4,
-                                cx - 17, cy + 4);
-
-                    g2.fillOval(cx - 14, cy + 20, 10, 10);
-                    g2.fillOval(cx + 18, cy + 20, 10, 10);
-
-                } else if (nombre.equals("Usuarios")) {
-
-                    // Personas
-                    g2.fillOval(cx - 12, cy - 32, 24, 24);
-                    g2.fillOval(cx - 39, cy - 17, 17, 17);
-                    g2.fillOval(cx + 22, cy - 17, 17, 17);
-
-                    g2.drawArc(
-                            cx - 23, cy - 5, 46, 48, 0, 180);
-
-                    g2.drawArc(
-                            cx - 46, cy + 5, 27, 27, 0, 180);
-
-                    g2.drawArc(
-                            cx + 19, cy + 5, 27, 27, 0, 180);
-
-                } else if (nombre.equals("Reportes")) {
-
-                    // Grafico de barras
-                    g2.fillRoundRect(
-                            cx - 32, cy + 1, 15, 29, 4, 4);
-
-                    g2.fillRoundRect(
-                            cx - 7, cy - 17, 15, 47, 4, 4);
-
-                    g2.fillRoundRect(
-                            cx + 18, cy - 31, 15, 61, 4, 4);
-                }
-
-                g2.dispose();
-            }
-        };
+        // El icono compartido conserva el mismo dibujo que el menú lateral.
+        JLabel icono = new JLabel(new ComponentesRedondeados.IconoModulo(nombre, 96),
+                SwingConstants.CENTER);
 
         icono.setOpaque(false);
         icono.setPreferredSize(new Dimension(120, 110));
@@ -438,7 +347,7 @@ public class MenuAdministradorView extends JFrame {
         centro.add(informacion, BorderLayout.SOUTH);
 
         // BOTON
-        JButton acceder = new JButton("Acceder  →");
+        JButton acceder = new ComponentesRedondeados.Boton("Acceder  →");
         acceder.setBackground(AZUL);
         acceder.setForeground(Color.WHITE);
         acceder.setFont(
