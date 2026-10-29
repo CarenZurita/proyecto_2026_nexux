@@ -3,12 +3,23 @@ package view;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.*;
+import java.awt.print.PrinterException;
 import java.io.IOException;
-import java.util.Optional;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.List;
 
+import model.Administrador;
+import model.DetalleVenta;
 import model.Medicamento;
 import model.Usuario;
+import model.Venta;
 import persistence.MedicamentoRepository;
 import persistence.VentaRepository;
 
@@ -16,407 +27,872 @@ public class VentaView extends JPanel {
 
     private final Usuario sesion;
 
-    private final MedicamentoRepository medicamentos;
-    private final VentaRepository ventas;
+    private final MedicamentoRepository medicamentos =
+            new MedicamentoRepository();
 
-    private JTextField txtCodigo;
+    private final VentaRepository ventas =
+            new VentaRepository();
+
+    private final Map<String, ItemCarrito> carrito =
+            new LinkedHashMap<>();
+
+    private JTextField txtBuscar;
     private JTextField txtCantidad;
+    private JTextField txtEfectivo;
 
-    private JLabel lblNombre;
+    private JLabel lblProducto;
     private JLabel lblStock;
     private JLabel lblPrecio;
     private JLabel lblTotal;
+    private JLabel lblCambio;
+    private JLabel lblItems;
 
-    private Medicamento medicamentoActual;
+    private JTable tabla;
+    private DefaultTableModel modeloTabla;
+
+    private Medicamento seleccionado;
 
     private final Color AZUL = new Color(37, 99, 235);
+    private final Color OSCURO = new Color(30, 41, 59);
     private final Color FONDO = new Color(241, 245, 249);
-    private final Color TEXTO = new Color(30, 41, 59);
+    private final Color GRIS = new Color(100, 116, 139);
+
+    private static class ItemCarrito {
+        Medicamento medicamento;
+        int cantidad;
+
+        ItemCarrito(Medicamento medicamento, int cantidad) {
+            this.medicamento = medicamento;
+            this.cantidad = cantidad;
+        }
+
+        BigDecimal subtotal() {
+            return BigDecimal.valueOf(medicamento.getPrecio())
+                    .multiply(BigDecimal.valueOf(cantidad));
+        }
+    }
 
     public VentaView(Usuario sesion) {
+        this.sesion = Objects.requireNonNull(sesion);
 
-        this.sesion = sesion;
-
-        this.medicamentos = new MedicamentoRepository();
-        this.ventas = new VentaRepository();
-
-        setLayout(new BorderLayout(0, 20));
+        setLayout(new BorderLayout());
         setBackground(FONDO);
-        setBorder(new EmptyBorder(15, 10, 15, 10));
+        setBorder(new EmptyBorder(15, 15, 15, 15));
 
         crearFormulario();
     }
 
-    // FORMULARIO COMPARTIDO POR ADMINISTRADOR Y ENCARGADO
+    private JPanel tarjeta() {
+        JPanel p = new JPanel();
+        p.setBackground(Color.WHITE);
+        p.setBorder(new EmptyBorder(20, 20, 20, 20));
+        return p;
+    }
+
+    private JLabel titulo(String texto, int tamano) {
+        JLabel l = new JLabel(texto);
+        l.setForeground(OSCURO);
+        l.setFont(new Font("SansSerif", Font.BOLD, tamano));
+        return l;
+    }
+
+    private JButton boton(String texto, Color color) {
+        JButton b = new JButton(texto);
+        b.setBackground(color);
+        b.setForeground(Color.WHITE);
+        b.setFont(new Font("SansSerif", Font.BOLD, 13));
+        b.setFocusPainted(false);
+        b.setOpaque(true);
+        b.setBorderPainted(false);
+        b.setCursor(Cursor.getPredefinedCursor(
+                Cursor.HAND_CURSOR));
+        b.setBorder(new EmptyBorder(12, 15, 12, 15));
+        return b;
+    }
+
     private void crearFormulario() {
-        JPanel principal = new ComponentesRedondeados.Panel(
-                new BorderLayout(0, 18), Color.WHITE, 32, new Color(0xE2E8F0));
-        principal.setBorder(new EmptyBorder(22, 24, 22, 24));
 
-        JLabel titulo = new JLabel("Registrar venta");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 24));
-        titulo.setForeground(TEXTO);
-        JLabel subtitulo = new JLabel("Busca un medicamento e indica la cantidad a vender.");
-        subtitulo.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        subtitulo.setForeground(new Color(0x64748B));
-        JPanel encabezado = new JPanel(new BorderLayout(0, 6));
+        JPanel encabezado = new JPanel(new BorderLayout());
         encabezado.setOpaque(false);
-        encabezado.add(titulo, BorderLayout.NORTH);
-        encabezado.add(subtitulo, BorderLayout.CENTER);
-        principal.add(encabezado, BorderLayout.NORTH);
+        encabezado.setBorder(
+                new EmptyBorder(0, 0, 15, 0));
 
-        JPanel formulario = new JPanel();
-        formulario.setOpaque(false);
-        formulario.setLayout(new BoxLayout(formulario, BoxLayout.Y_AXIS));
-        JLabel lblCodigo = etiquetaCampo("Código del medicamento");
-        txtCodigo = new ComponentesRedondeados.Campo();
-        prepararCampo(txtCodigo);
-        lblCodigo.setLabelFor(txtCodigo);
-        JButton btnBuscar = new ComponentesRedondeados.Boton("Buscar medicamento");
-        estiloBoton(btnBuscar, AZUL);
+        JPanel textos = new JPanel(new GridLayout(2, 1));
+        textos.setOpaque(false);
+        textos.add(titulo("Punto de venta", 25));
+
+        JLabel subtitulo = new JLabel(
+                "Farmacia Salud Vida - Registro de ventas");
+        subtitulo.setForeground(GRIS);
+        textos.add(subtitulo);
+
+        encabezado.add(textos, BorderLayout.WEST);
+
+        JButton btnHistorial = boton(
+                "Historial de ventas", AZUL);
+
+        btnHistorial.addActionListener(e -> mostrarHistorial());
+        btnHistorial.setVisible(sesion instanceof Administrador);
+
+        encabezado.add(btnHistorial, BorderLayout.EAST);
+        add(encabezado, BorderLayout.NORTH);
+
+        JPanel cuerpo = new JPanel(new GridLayout(1, 2, 15, 0));
+        cuerpo.setOpaque(false);
+
+        // SECCION IZQUIERDA: BUSQUEDA
+        JPanel izquierda = tarjeta();
+        izquierda.setLayout(
+                new BoxLayout(izquierda, BoxLayout.Y_AXIS));
+
+        agregar(izquierda, titulo("Buscar medicamento", 19));
+
+        agregar(izquierda, Box.createVerticalStrut(15));
+
+        agregar(izquierda, new JLabel("Código o nombre:"));
+
+        txtBuscar = new JTextField();
+        txtBuscar.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        txtBuscar.setPreferredSize(new Dimension(100, 40));
+        txtBuscar.setMaximumSize(
+                new Dimension(Integer.MAX_VALUE, 42));
+
+        agregar(izquierda, txtBuscar);
+
+        agregar(izquierda, Box.createVerticalStrut(10));
+
+        JButton btnBuscar = boton("Buscar", AZUL);
         btnBuscar.addActionListener(e -> buscarMedicamento());
-        txtCodigo.addActionListener(e -> buscarMedicamento());
-        JPanel filaBusqueda = new JPanel(new BorderLayout(12, 0));
-        filaBusqueda.setOpaque(false);
-        filaBusqueda.setAlignmentX(Component.LEFT_ALIGNMENT);
-        filaBusqueda.setPreferredSize(new Dimension(0, 42));
-        filaBusqueda.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
-        filaBusqueda.add(txtCodigo, BorderLayout.CENTER);
-        filaBusqueda.add(btnBuscar, BorderLayout.EAST);
-        formulario.add(lblCodigo);
-        formulario.add(Box.createVerticalStrut(7));
-        formulario.add(filaBusqueda);
-        formulario.add(Box.createVerticalStrut(16));
+        txtBuscar.addActionListener(e -> buscarMedicamento());
 
-        JPanel info = new ComponentesRedondeados.Panel(new GridLayout(1, 3, 18, 0),
-                new Color(0xF8FAFC), 24);
-        info.setBorder(new EmptyBorder(14, 16, 14, 16));
-        info.setAlignmentX(Component.LEFT_ALIGNMENT);
-        info.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
-        lblNombre = new JLabel("No seleccionado");
-        lblStock = new JLabel("-");
-        lblPrecio = new JLabel("Bs 0.00");
-        agregarDato(info, "Medicamento", lblNombre);
-        agregarDato(info, "Stock disponible", lblStock);
-        agregarDato(info, "Precio unitario", lblPrecio);
-        formulario.add(info);
-        formulario.add(Box.createVerticalStrut(16));
+        agregar(izquierda, btnBuscar);
 
-        JLabel lblCantidad = etiquetaCampo("Cantidad a vender");
-        txtCantidad = new ComponentesRedondeados.Campo();
-        prepararCampo(txtCantidad);
-        lblCantidad.setLabelFor(txtCantidad);
-        txtCantidad.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { calcularTotal(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { calcularTotal(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { calcularTotal(); }
-        });
-        formulario.add(lblCantidad);
-        formulario.add(Box.createVerticalStrut(7));
-        formulario.add(txtCantidad);
-        formulario.add(Box.createVerticalStrut(16));
+        agregar(izquierda, Box.createVerticalStrut(20));
 
-        JPanel panelTotal = new ComponentesRedondeados.Panel(new BorderLayout(10, 0),
-                new Color(0xDBEAFE), 24);
-        panelTotal.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panelTotal.setBorder(new EmptyBorder(14, 18, 14, 18));
-        panelTotal.setMaximumSize(new Dimension(Integer.MAX_VALUE, 68));
-        JLabel textoTotal = new JLabel("TOTAL A PAGAR");
-        textoTotal.setFont(new Font("SansSerif", Font.BOLD, 15));
-        textoTotal.setForeground(new Color(0x1E40AF));
-        lblTotal = new JLabel("Bs 0.00");
-        lblTotal.setFont(new Font("SansSerif", Font.BOLD, 26));
+        JPanel info = new JPanel(new GridLayout(3, 1, 5, 8));
+        info.setBackground(new Color(248, 250, 252));
+        info.setBorder(new EmptyBorder(15, 15, 15, 15));
+        info.setMaximumSize(
+                new Dimension(Integer.MAX_VALUE, 125));
+
+        lblProducto = new JLabel("Producto: Ninguno");
+        lblStock = new JLabel("Stock: -");
+        lblPrecio = new JLabel("Precio: Bs 0.00");
+
+        info.add(lblProducto);
+        info.add(lblStock);
+        info.add(lblPrecio);
+
+        agregar(izquierda, info);
+
+        agregar(izquierda, Box.createVerticalStrut(20));
+
+        agregar(izquierda, new JLabel("Cantidad:"));
+
+        txtCantidad = new JTextField("1");
+        txtCantidad.setMaximumSize(
+                new Dimension(Integer.MAX_VALUE, 40));
+
+        agregar(izquierda, txtCantidad);
+
+        agregar(izquierda, Box.createVerticalStrut(15));
+
+        JButton btnAgregar = boton(
+                "Agregar al carrito", AZUL);
+
+        btnAgregar.addActionListener(e -> agregarAlCarrito());
+
+        agregar(izquierda, btnAgregar);
+
+        izquierda.add(Box.createVerticalGlue());
+
+        // SECCION DERECHA: CARRITO
+        JPanel derecha = tarjeta();
+        derecha.setLayout(new BorderLayout(0, 14));
+
+        JPanel cabeceraCarrito =
+                new JPanel(new BorderLayout());
+        cabeceraCarrito.setOpaque(false);
+
+        cabeceraCarrito.add(
+                titulo("Carrito de compra", 19),
+                BorderLayout.WEST);
+
+        lblItems = new JLabel("0 productos");
+        lblItems.setForeground(GRIS);
+
+        cabeceraCarrito.add(lblItems, BorderLayout.EAST);
+        derecha.add(cabeceraCarrito, BorderLayout.NORTH);
+
+        String[] columnas = {
+                "Medicamento", "Cant.", "Precio", "Subtotal"
+        };
+
+        modeloTabla = new DefaultTableModel(columnas, 0) {
+            @Override
+            public boolean isCellEditable(int fila, int columna) {
+                return false;
+            }
+        };
+
+        tabla = new JTable(modeloTabla);
+        tabla.setRowHeight(30);
+        tabla.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION);
+        tabla.getTableHeader().setReorderingAllowed(false);
+
+        JScrollPane scroll = new JScrollPane(tabla);
+        derecha.add(scroll, BorderLayout.CENTER);
+
+        JPanel zonaInferior = new JPanel();
+        zonaInferior.setOpaque(false);
+        zonaInferior.setLayout(
+                new BoxLayout(zonaInferior, BoxLayout.Y_AXIS));
+
+        JPanel accionesCarrito =
+                new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        accionesCarrito.setOpaque(false);
+
+        JButton btnQuitar = boton(
+                "Quitar producto", new Color(220, 38, 38));
+
+        JButton btnVaciar = boton(
+                "Vaciar carrito", GRIS);
+
+        JButton btnCantidad = boton(
+                "Cambiar cantidad", AZUL);
+
+        btnQuitar.addActionListener(e -> quitarProducto());
+        btnVaciar.addActionListener(e -> vaciarCarrito());
+        btnCantidad.addActionListener(e -> cambiarCantidad());
+
+        accionesCarrito.add(btnQuitar);
+        accionesCarrito.add(btnCantidad);
+        accionesCarrito.add(btnVaciar);
+
+        agregar(zonaInferior, accionesCarrito);
+        agregar(zonaInferior, Box.createVerticalStrut(15));
+
+        JPanel totalPanel = new JPanel(new BorderLayout());
+        totalPanel.setBackground(new Color(219, 234, 254));
+        totalPanel.setBorder(new EmptyBorder(15, 15, 15, 15));
+
+        totalPanel.add(
+                titulo("TOTAL", 17), BorderLayout.WEST);
+
+        lblTotal = titulo("Bs 0.00", 23);
         lblTotal.setForeground(AZUL);
-        panelTotal.add(textoTotal, BorderLayout.WEST);
-        panelTotal.add(lblTotal, BorderLayout.EAST);
-        formulario.add(panelTotal);
-        principal.add(formulario, BorderLayout.CENTER);
 
-        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        acciones.setOpaque(false);
-        JButton btnLimpiar = new ComponentesRedondeados.Boton("Limpiar");
-        estiloBoton(btnLimpiar, new Color(100, 116, 139));
-        JButton btnRegistrar = new ComponentesRedondeados.Boton("Registrar venta");
-        estiloBoton(btnRegistrar, new Color(22, 163, 74));
-        btnLimpiar.addActionListener(e -> limpiarFormulario());
+        totalPanel.add(lblTotal, BorderLayout.EAST);
+        agregar(zonaInferior, totalPanel);
+
+        agregar(zonaInferior, Box.createVerticalStrut(15));
+
+        agregar(zonaInferior, new JLabel("Efectivo recibido (Bs):"));
+
+        txtEfectivo = new JTextField();
+        txtEfectivo.setMaximumSize(
+                new Dimension(Integer.MAX_VALUE, 40));
+
+        agregar(zonaInferior, txtEfectivo);
+
+        txtEfectivo.getDocument().addDocumentListener(
+                new javax.swing.event.DocumentListener() {
+                    public void insertUpdate(
+                            javax.swing.event.DocumentEvent e) {
+                        calcularCambio();
+                    }
+
+                    public void removeUpdate(
+                            javax.swing.event.DocumentEvent e) {
+                        calcularCambio();
+                    }
+
+                    public void changedUpdate(
+                            javax.swing.event.DocumentEvent e) {
+                        calcularCambio();
+                    }
+                });
+
+        agregar(zonaInferior, Box.createVerticalStrut(10));
+
+        lblCambio = titulo("Cambio: Bs 0.00", 17);
+        agregar(zonaInferior, lblCambio);
+
+        agregar(zonaInferior, Box.createVerticalStrut(15));
+
+        JButton btnRegistrar = boton(
+                "CONFIRMAR VENTA", new Color(22, 163, 74));
+
+        btnRegistrar.setAlignmentX(Component.LEFT_ALIGNMENT);
         btnRegistrar.addActionListener(e -> registrarVenta());
-        acciones.add(btnLimpiar);
-        acciones.add(Box.createHorizontalStrut(12));
-        acciones.add(btnRegistrar);
-        principal.add(acciones, BorderLayout.SOUTH);
-        add(principal, BorderLayout.CENTER);
+
+        agregar(zonaInferior, btnRegistrar);
+
+        derecha.add(zonaInferior, BorderLayout.SOUTH);
+
+        cuerpo.add(izquierda);
+        cuerpo.add(derecha);
+
+        add(cuerpo, BorderLayout.CENTER);
     }
 
-    private JLabel etiquetaCampo(String texto) {
-        JLabel etiqueta = new JLabel(texto);
-        etiqueta.setFont(new Font("SansSerif", Font.BOLD, 14));
-        etiqueta.setForeground(TEXTO);
-        etiqueta.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return etiqueta;
-    }
-
-    private void prepararCampo(JTextField campo) {
-        campo.setFont(new Font("SansSerif", Font.PLAIN, 15));
-        campo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        campo.setPreferredSize(new Dimension(0, 42));
-        campo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
-    }
-
-    private void agregarDato(JPanel panel, String texto, JLabel valor) {
-        JPanel bloque = new JPanel(new BorderLayout(0, 8));
-        bloque.setOpaque(false);
-        if (panel.getComponentCount() > 0) {
-            bloque.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(0xE2E8F0)),
-                    new EmptyBorder(0, 14, 0, 0)));
+    private void agregar(JPanel panel, Component componente) {
+        if (panel.getLayout() instanceof BoxLayout) {
+            if (componente instanceof JComponent) {
+                ((JComponent) componente).setAlignmentX(
+                        Component.LEFT_ALIGNMENT);
+            }
         }
-        JLabel etiqueta = etiquetaCampo(texto);
-        etiqueta.setFont(etiqueta.getFont().deriveFont(13f));
-        valor.putClientProperty("html.disable", Boolean.TRUE);
-        valor.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        valor.setForeground(TEXTO);
-        bloque.add(etiqueta, BorderLayout.NORTH);
-        bloque.add(valor, BorderLayout.CENTER);
-        panel.add(bloque);
+        panel.add(componente);
     }
 
-    // ESTILO DE LOS BOTONES
-    private void estiloBoton(JButton boton, Color color) {
-
-        boton.setBackground(color);
-        boton.setForeground(Color.WHITE);
-        boton.setFont(
-                new Font("SansSerif", Font.BOLD, 13));
-        boton.setFocusPainted(false);
-        boton.setOpaque(true);
-        boton.setBorderPainted(false);
-        boton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        boton.setBorder(
-                new EmptyBorder(12, 18, 12, 18));
-    }
-
-    // BUSCAR MEDICAMENTO
+    // BUSCAR POR CODIGO O NOMBRE
     private void buscarMedicamento() {
 
-        String codigo = txtCodigo.getText().trim()
-                .toUpperCase(java.util.Locale.ROOT);
+        String consulta = txtBuscar.getText().trim();
 
-        medicamentoActual = null;
-        lblNombre.setText("No seleccionado");
-        lblStock.setText("-");
-        lblPrecio.setText("Bs 0.00");
-        lblTotal.setText("Bs 0.00");
+        seleccionado = null;
+        lblProducto.setText("Producto: Ninguno");
+        lblStock.setText("Stock: -");
+        lblPrecio.setText("Precio: Bs 0.00");
 
-        if (codigo.isEmpty()) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Ingrese el código del medicamento.",
-                    "Aviso",
-                    JOptionPane.WARNING_MESSAGE);
-
+        if (consulta.isEmpty()) {
+            aviso("Ingrese el código o nombre del medicamento.");
             return;
         }
 
         try {
+            List<Medicamento> resultados =
+                    sesion.buscarMedicamento(consulta, medicamentos);
 
-            Optional<Medicamento> resultado =
-                    sesion.consultarStock(codigo, medicamentos);
-
-            if (resultado.isEmpty()) {
-
-                JOptionPane.showMessageDialog(
-                        this,
-                        "No se encontró el medicamento.",
-                        "Búsqueda",
-                        JOptionPane.INFORMATION_MESSAGE);
-
+            if (resultados.isEmpty()) {
+                aviso("No se encontraron medicamentos.");
                 return;
             }
 
-            Medicamento medicamento = resultado.get();
+            Medicamento elegido;
 
-            if (medicamento.estaVencido()) {
+            if (resultados.size() == 1) {
+                elegido = resultados.get(0);
+            } else {
+                Map<String, Medicamento> opciones =
+                        new LinkedHashMap<>();
 
-                JOptionPane.showMessageDialog(
+                for (Medicamento m : resultados) {
+                    opciones.put(
+                            m.getCodigo() + " - " + m.getNombre(),
+                            m);
+                }
+
+                Object opcion = JOptionPane.showInputDialog(
                         this,
-                        "No se puede vender un medicamento vencido.",
-                        "Medicamento vencido",
-                        JOptionPane.WARNING_MESSAGE);
+                        "Seleccione el medicamento:",
+                        "Resultados de búsqueda",
+                        JOptionPane.QUESTION_MESSAGE,
+                        null,
+                        opciones.keySet().toArray(),
+                        opciones.keySet().iterator().next());
 
+                if (opcion == null) return;
+
+                elegido = opciones.get(opcion.toString());
+            }
+
+            if (elegido.estaVencido()) {
+                aviso("No se puede vender un medicamento vencido.");
                 return;
             }
 
-            medicamentoActual = medicamento;
+            seleccionado = elegido;
 
-            lblNombre.setText(medicamento.getNombre());
+            lblProducto.setText(
+                    "Producto: " + elegido.getNombre());
+
             lblStock.setText(
-                    String.valueOf(
-                            medicamento.getCantidadDisponible()));
+                    "Stock: " + elegido.getCantidadDisponible());
 
-            lblPrecio.setText(String.format(
-                    java.util.Locale.US,
-                    "Bs %.2f",
-                    medicamento.getPrecio()));
+            lblPrecio.setText(
+                    "Precio: " + dinero(
+                            BigDecimal.valueOf(elegido.getPrecio())));
 
-            calcularTotal();
-
-        } catch (IOException | SecurityException
-                 | IllegalArgumentException ex) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Error al buscar: " + ex.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+        } catch (IOException | RuntimeException ex) {
+            error(ex);
         }
     }
 
-    // CALCULAR TOTAL
-    private void calcularTotal() {
+    // AGREGAR PRODUCTO
+    private void agregarAlCarrito() {
 
-        if (medicamentoActual == null) {
-            lblTotal.setText("Bs 0.00");
+        if (seleccionado == null) {
+            aviso("Primero busque un medicamento.");
             return;
         }
 
         try {
-
             int cantidad = Integer.parseInt(
                     txtCantidad.getText().trim());
 
-            if (cantidad <= 0 ||
-                    cantidad > medicamentoActual.getCantidadDisponible()) {
+            if (cantidad <= 0)
+                throw new IllegalArgumentException(
+                        "La cantidad debe ser mayor que cero.");
 
-                lblTotal.setText("Bs 0.00");
+            String codigo = seleccionado.getCodigo();
+
+            ItemCarrito existente = carrito.get(codigo);
+
+            int actual = existente == null
+                    ? 0 : existente.cantidad;
+
+            int nuevaCantidad = Math.addExact(actual, cantidad);
+
+            if (nuevaCantidad >
+                    seleccionado.getCantidadDisponible()) {
+
+                aviso("Stock insuficiente para esa cantidad.");
                 return;
             }
 
-            double total =
-                    medicamentoActual.getPrecio() * cantidad;
+            carrito.put(codigo,
+                    new ItemCarrito(seleccionado, nuevaCantidad));
 
-            lblTotal.setText(String.format(
-                    java.util.Locale.US,
-                    "Bs %.2f", total));
+            actualizarCarrito();
 
-        } catch (NumberFormatException e) {
-            lblTotal.setText("Bs 0.00");
+        } catch (NumberFormatException ex) {
+            aviso("Ingrese una cantidad entera válida.");
+        } catch (ArithmeticException ex) {
+            aviso("La cantidad es demasiado grande.");
+        } catch (IllegalArgumentException ex) {
+            aviso(ex.getMessage());
         }
     }
 
-    // REGISTRAR VENTA
-    private void registrarVenta() {
+    // QUITAR PRODUCTO DEL CARRITO
+    private void quitarProducto() {
 
-        if (medicamentoActual == null) {
+        int fila = tabla.getSelectedRow();
 
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Primero debe buscar un medicamento.",
-                    "Aviso",
-                    JOptionPane.WARNING_MESSAGE);
-
+        if (fila < 0) {
+            aviso("Seleccione un producto de la tabla.");
             return;
         }
 
-        int cantidad;
+        String codigo = codigoEnFila(fila);
+
+        carrito.remove(codigo);
+        actualizarCarrito();
+    }
+
+    // MODIFICAR CANTIDAD
+    private void cambiarCantidad() {
+
+        int fila = tabla.getSelectedRow();
+
+        if (fila < 0) {
+            aviso("Seleccione un producto.");
+            return;
+        }
+
+        String codigo = codigoEnFila(fila);
+        ItemCarrito item = carrito.get(codigo);
+
+        String respuesta = JOptionPane.showInputDialog(
+                this, "Nueva cantidad:", item.cantidad);
+
+        if (respuesta == null) return;
 
         try {
+            int nueva = Integer.parseInt(respuesta.trim());
 
-            cantidad = Integer.parseInt(
-                    txtCantidad.getText().trim());
-
-            if (cantidad <= 0) {
-                throw new NumberFormatException();
+            if (nueva <= 0) {
+                aviso("La cantidad debe ser positiva.");
+                return;
             }
 
-        } catch (NumberFormatException e) {
+            if (nueva > item.medicamento.getCantidadDisponible()) {
+                aviso("La cantidad supera el stock.");
+                return;
+            }
 
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Ingrese una cantidad entera mayor a cero.",
-                    "Cantidad inválida",
-                    JOptionPane.WARNING_MESSAGE);
+            item.cantidad = nueva;
+            actualizarCarrito();
 
-            return;
+        } catch (NumberFormatException ex) {
+            aviso("Ingrese un número entero válido.");
+        }
+    }
+
+    private String codigoEnFila(int fila) {
+
+        int indice = 0;
+
+        for (String codigo : carrito.keySet()) {
+            if (indice == fila) return codigo;
+            indice++;
         }
 
-        if (cantidad > medicamentoActual.getCantidadDisponible()) {
+        throw new IllegalArgumentException("Fila inválida.");
+    }
 
-            JOptionPane.showMessageDialog(
-                    this,
-                    "La cantidad supera el stock disponible.",
-                    "Stock insuficiente",
-                    JOptionPane.WARNING_MESSAGE);
+    private void vaciarCarrito() {
 
-            return;
-        }
+        if (carrito.isEmpty()) return;
 
-        double total =
-                medicamentoActual.getPrecio() * cantidad;
-
-        int confirmar = JOptionPane.showConfirmDialog(
+        int respuesta = JOptionPane.showConfirmDialog(
                 this,
-                String.format(
-                        java.util.Locale.US,
-                        "Medicamento: %s\nCantidad: %d\nTotal: Bs %.2f\n\n¿Confirmar venta?",
-                        medicamentoActual.getNombre(),
-                        cantidad,
-                        total),
-                "Confirmar venta",
+                "¿Desea vaciar el carrito?",
+                "Confirmación",
                 JOptionPane.YES_NO_OPTION);
 
-        if (confirmar != JOptionPane.YES_OPTION) {
+        if (respuesta == JOptionPane.YES_OPTION) {
+            limpiarCarrito();
+        }
+    }
+
+    private void limpiarCarrito() {
+        carrito.clear();
+        seleccionado = null;
+
+        txtBuscar.setText("");
+        txtCantidad.setText("1");
+        txtEfectivo.setText("");
+
+        lblProducto.setText("Producto: Ninguno");
+        lblStock.setText("Stock: -");
+        lblPrecio.setText("Precio: Bs 0.00");
+
+        actualizarCarrito();
+    }
+
+    private BigDecimal totalCarrito() {
+
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (ItemCarrito item : carrito.values()) {
+            total = total.add(item.subtotal());
+        }
+
+        return total.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private String dinero(BigDecimal valor) {
+        return String.format(Locale.US,
+                "Bs %.2f", valor);
+    }
+
+    private void actualizarCarrito() {
+
+        modeloTabla.setRowCount(0);
+
+        for (ItemCarrito item : carrito.values()) {
+
+            modeloTabla.addRow(new Object[]{
+                    item.medicamento.getNombre(),
+                    item.cantidad,
+                    dinero(BigDecimal.valueOf(
+                            item.medicamento.getPrecio())),
+                    dinero(item.subtotal())
+            });
+        }
+
+        lblItems.setText(
+                carrito.size() + " productos");
+
+        lblTotal.setText(dinero(totalCarrito()));
+
+        calcularCambio();
+    }
+
+    private BigDecimal leerEfectivo() {
+
+        String valor = txtEfectivo.getText()
+                .trim().replace(',', '.');
+
+        BigDecimal efectivo = new BigDecimal(valor);
+
+        if (efectivo.signum() < 0 ||
+                efectivo.scale() > 2) {
+            throw new NumberFormatException(
+                    "Importe no válido.");
+        }
+
+        return efectivo.setScale(2, RoundingMode.UNNECESSARY);
+    }
+
+    private void calcularCambio() {
+
+        BigDecimal total = totalCarrito();
+
+        try {
+            BigDecimal efectivo = leerEfectivo();
+            BigDecimal cambio = efectivo.subtract(total);
+
+            if (cambio.signum() < 0) {
+                lblCambio.setText("Efectivo insuficiente");
+                lblCambio.setForeground(Color.RED);
+            } else {
+                lblCambio.setText(
+                        "Cambio: " + dinero(cambio));
+                lblCambio.setForeground(
+                        new Color(22, 163, 74));
+            }
+
+        } catch (NumberFormatException | ArithmeticException ex) {
+            lblCambio.setText("Cambio: Bs 0.00");
+            lblCambio.setForeground(OSCURO);
+        }
+    }
+
+    // REGISTRAR UNA VENTA CON VARIOS DETALLES
+    private void registrarVenta() {
+
+        if (carrito.isEmpty()) {
+            aviso("Agregue al menos un medicamento.");
+            return;
+        }
+
+        BigDecimal efectivo;
+
+        try {
+            efectivo = leerEfectivo();
+        } catch (NumberFormatException | ArithmeticException ex) {
+            aviso("Ingrese el efectivo recibido con máximo 2 decimales.");
+            return;
+        }
+
+        BigDecimal totalMostrado = totalCarrito();
+
+        if (efectivo.compareTo(totalMostrado) < 0) {
+            aviso("El efectivo recibido es insuficiente.");
+            return;
+        }
+
+        // Reconsultar productos para evitar datos desactualizados
+        Venta venta = new Venta(sesion);
+        BigDecimal totalActual = BigDecimal.ZERO;
+
+        try {
+            for (ItemCarrito item : carrito.values()) {
+
+                Medicamento actual = sesion.consultarStock(
+                        item.medicamento.getCodigo(),
+                        medicamentos
+                ).orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Medicamento no encontrado: "
+                                + item.medicamento.getCodigo()));
+
+                if (actual.estaVencido()) {
+                    throw new IllegalStateException(
+                            "Medicamento vencido: " + actual.getNombre());
+                }
+
+                if (item.cantidad > actual.getCantidadDisponible()) {
+                    throw new IllegalStateException(
+                            "Stock insuficiente: " + actual.getNombre());
+                }
+
+                // Evitar registrar precios antiguos sin avisar
+                if (Double.compare(
+                        actual.getPrecio(),
+                        item.medicamento.getPrecio()) != 0) {
+                    throw new IllegalStateException(
+                            "Cambió el precio de "
+                            + actual.getNombre()
+                            + ". Actualice el carrito.");
+                }
+
+                venta.agregarDetalle(
+                        new DetalleVenta(actual, item.cantidad));
+
+                totalActual = totalActual.add(
+                        BigDecimal.valueOf(actual.getPrecio())
+                                .multiply(BigDecimal.valueOf(
+                                        item.cantidad)));
+            }
+
+            totalActual = totalActual.setScale(
+                    2, RoundingMode.HALF_UP);
+
+            if (efectivo.compareTo(totalActual) < 0) {
+                aviso("El efectivo no alcanza para el total actualizado.");
+                return;
+            }
+
+            BigDecimal cambio = efectivo.subtract(totalActual);
+
+            int confirmar = JOptionPane.showConfirmDialog(
+                    this,
+                    "Total: " + dinero(totalActual)
+                    + "\nRecibido: " + dinero(efectivo)
+                    + "\nCambio: " + dinero(cambio)
+                    + "\n\n¿Confirmar esta venta?",
+                    "Confirmar venta",
+                    JOptionPane.YES_NO_OPTION);
+
+            if (confirmar != JOptionPane.YES_OPTION) return;
+
+            // UTILIZA EL METODO ORIGINAL DEL MODELO
+            venta.registrar(sesion, medicamentos, ventas);
+
+            String comprobante = crearComprobante(
+                    venta, efectivo, cambio);
+
+            limpiarCarrito();
+            mostrarComprobante(comprobante);
+
+        } catch (IOException | RuntimeException ex) {
+            error(ex);
+        }
+    }
+
+    // GENERAR COMPROBANTE DE TEXTO
+    private String crearComprobante(
+            Venta venta, BigDecimal efectivo,
+            BigDecimal cambio) {
+
+        StringBuilder texto = new StringBuilder();
+
+        texto.append("           FARMACIA SALUD VIDA\n");
+        texto.append("========================================\n");
+        texto.append("          COMPROBANTE DE VENTA\n");
+        texto.append("========================================\n");
+
+        texto.append("Fecha: ");
+        texto.append(LocalDateTime.now().format(
+                DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+        texto.append("\n");
+
+        texto.append("Atendido por: ");
+        texto.append(sesion.getNombreCompleto());
+        texto.append("\n\n");
+
+        for (DetalleVenta detalle : venta.obtenerDetalle()) {
+
+            texto.append(detalle.getMedicamento().getNombre());
+            texto.append("\n");
+
+            texto.append("  ");
+            texto.append(detalle.getCantidad());
+            texto.append(" x ");
+            texto.append(dinero(BigDecimal.valueOf(
+                    detalle.getPrecioUnitario())));
+            texto.append(" = ");
+            texto.append(dinero(BigDecimal.valueOf(
+                    detalle.getSubtotal())));
+            texto.append("\n");
+        }
+
+        texto.append("----------------------------------------\n");
+        texto.append("TOTAL: ");
+        texto.append(dinero(BigDecimal.valueOf(
+                venta.calcularTotal())));
+        texto.append("\n");
+
+        texto.append("EFECTIVO: ");
+        texto.append(dinero(efectivo));
+        texto.append("\n");
+
+        texto.append("CAMBIO: ");
+        texto.append(dinero(cambio));
+        texto.append("\n");
+
+        texto.append("========================================\n");
+        texto.append("       Gracias por su compra\n");
+
+        return texto.toString();
+    }
+
+    // MOSTRAR E IMPRIMIR COMPROBANTE
+    private void mostrarComprobante(String contenido) {
+
+        JTextArea area = new JTextArea(contenido, 20, 42);
+        area.setEditable(false);
+        area.setFont(new Font("Monospaced", Font.PLAIN, 13));
+
+        JScrollPane scroll = new JScrollPane(area);
+
+        Object[] opciones = {"Imprimir", "Cerrar"};
+
+        int opcion = JOptionPane.showOptionDialog(
+                this, scroll, "Venta registrada correctamente",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.INFORMATION_MESSAGE,
+                null, opciones, opciones[1]);
+
+        if (opcion == 0) {
+            try {
+                if (!area.print()) {
+                    aviso("Se canceló la impresión.");
+                }
+            } catch (PrinterException ex) {
+                error(ex);
+            }
+        }
+    }
+
+    // HISTORIAL: PERMISO DE ADMINISTRADOR
+    private void mostrarHistorial() {
+
+        if (!(sesion instanceof Administrador)) {
+            aviso("No tiene permiso para consultar el historial.");
             return;
         }
 
         try {
+            List<Venta> historial =
+                    ((Administrador) sesion)
+                            .consultarHistorialVentas(ventas);
 
-            sesion.registrarVenta(
-                    medicamentoActual.getCodigo(),
-                    cantidad,
-                    medicamentos,
-                    ventas);
+            DefaultTableModel modelo = new DefaultTableModel(
+                    new String[]{
+                            "Fecha", "Usuario",
+                            "Productos", "Total (Bs)"
+                    }, 0) {
+
+                @Override
+                public boolean isCellEditable(int fila, int col) {
+                    return false;
+                }
+            };
+
+            for (Venta v : historial) {
+                modelo.addRow(new Object[]{
+                        v.getFecha(),
+                        v.getUsuarioRegistrado(),
+                        v.obtenerDetalle().size(),
+                        dinero(BigDecimal.valueOf(
+                                v.calcularTotal()))
+                });
+            }
+
+            JTable tablaHistorial = new JTable(modelo);
+            tablaHistorial.setRowHeight(28);
+
+            JScrollPane scroll =
+                    new JScrollPane(tablaHistorial);
+
+            scroll.setPreferredSize(new Dimension(720, 350));
 
             JOptionPane.showMessageDialog(
-                    this,
-                    "Venta registrada correctamente.",
-                    "Venta exitosa",
+                    this, scroll, "Historial de ventas",
                     JOptionPane.INFORMATION_MESSAGE);
 
-            limpiarFormulario();
-
-        } catch (IOException | SecurityException
-                 | IllegalArgumentException
-                 | IllegalStateException ex) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No se pudo registrar la venta:\n"
-                            + ex.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
-
-            // Los datos podrían haber cambiado.
-            medicamentoActual = null;
-            lblNombre.setText("No seleccionado");
-            lblStock.setText("-");
-            lblPrecio.setText("Bs 0.00");
-            lblTotal.setText("Bs 0.00");
+        } catch (IOException | RuntimeException ex) {
+            error(ex);
         }
     }
 
-    // LIMPIAR FORMULARIO
-    private void limpiarFormulario() {
+    private void aviso(String mensaje) {
+        JOptionPane.showMessageDialog(
+                this, mensaje, "Aviso",
+                JOptionPane.WARNING_MESSAGE);
+    }
 
-        txtCodigo.setText("");
-        txtCantidad.setText("");
-
-        lblNombre.setText("No seleccionado");
-        lblStock.setText("-");
-        lblPrecio.setText("Bs 0.00");
-        lblTotal.setText("Bs 0.00");
-
-        medicamentoActual = null;
-        txtCodigo.requestFocusInWindow();
+    private void error(Exception ex) {
+        JOptionPane.showMessageDialog(
+                this, "Operación no completada:\n"
+                        + ex.getMessage(),
+                "Error", JOptionPane.ERROR_MESSAGE);
     }
 }
