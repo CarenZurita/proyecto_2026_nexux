@@ -27,6 +27,9 @@ public class MenuAdministradorView extends JFrame {
 
     private final Color AZUL_OSCURO = new Color(30, 41, 59);
     private final Color AZUL = new Color(37, 99, 235);
+    private final Color FONDO_MENU = new Color(0xE8F7F2);
+    private final Color FONDO_MENU_HOVER = new Color(0xD5ECE6);
+    private final Color AZUL_HOVER = new Color(29, 78, 216);
     private final Color FONDO = new Color(241, 245, 249);
     private final Color GRIS = new Color(100, 116, 139);
 
@@ -60,13 +63,13 @@ public class MenuAdministradorView extends JFrame {
         getContentPane().setBackground(FONDO);
 
         // PANEL LATERAL
-        JPanel menuLateral = new ComponentesRedondeados.Panel(new BorderLayout(), AZUL_OSCURO, 30);
-        menuLateral.setBackground(AZUL_OSCURO);
+        JPanel menuLateral = new ComponentesRedondeados.Panel(new BorderLayout(), FONDO_MENU, 30);
+        menuLateral.setBackground(FONDO_MENU);
         menuLateral.setPreferredSize(new Dimension(230, 0));
 
         JLabel logo = new JLabel("SALUD VIDA",new LoginView.MarcaIcon(32),SwingConstants.LEFT);
         logo.setIconTextGap(10);
-        logo.setForeground(Color.WHITE);
+        logo.setForeground(AZUL_OSCURO);
         logo.setFont(new Font("SansSerif", Font.BOLD, 22));
         logo.setBorder(
                 BorderFactory.createEmptyBorder(30, 15, 30, 10));
@@ -117,7 +120,7 @@ public class MenuAdministradorView extends JFrame {
         cerrarSesion.addActionListener(e -> cerrarSesion());
 
         JPanel panelInferior = new JPanel(new BorderLayout());
-        panelInferior.setBackground(AZUL_OSCURO);
+        panelInferior.setBackground(FONDO_MENU);
         panelInferior.setBorder(
                 BorderFactory.createEmptyBorder(10, 12, 20, 12));
         panelInferior.add(cerrarSesion, BorderLayout.CENTER);
@@ -139,8 +142,8 @@ public class MenuAdministradorView extends JFrame {
 
         boton.setFont(
                 new Font("SansSerif", Font.BOLD, 15));
-        boton.setBackground(AZUL_OSCURO);
-        boton.setForeground(Color.WHITE);
+        boton.setBackground(FONDO_MENU);
+        boton.setForeground(AZUL_OSCURO);
         boton.setFocusPainted(false);
         boton.setOpaque(true);
         boton.setBorderPainted(false);
@@ -154,12 +157,16 @@ public class MenuAdministradorView extends JFrame {
 
             @Override
             public void mouseEntered(MouseEvent e) {
-                boton.setBackground(new Color(51, 65, 85));
+                boolean seleccionado = nombre.equals(pantallaActual);
+                boton.setBackground(seleccionado ? AZUL_HOVER : FONDO_MENU_HOVER);
+                boton.setForeground(seleccionado ? Color.WHITE : AZUL_OSCURO);
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                boton.setBackground(nombre.equals(pantallaActual) ? AZUL : AZUL_OSCURO);
+                boolean seleccionado = nombre.equals(pantallaActual);
+                boton.setBackground(seleccionado ? AZUL : FONDO_MENU);
+                boton.setForeground(seleccionado ? Color.WHITE : AZUL_OSCURO);
             }
         });
 
@@ -175,7 +182,11 @@ public class MenuAdministradorView extends JFrame {
             throw new SecurityException("Se requiere una sesión de administrador.");
         }
         pantallaActual = nombre;
-        botonesMenu.forEach((clave, boton) -> boton.setBackground(clave.equals(nombre) ? AZUL : AZUL_OSCURO));
+        botonesMenu.forEach((clave, boton) -> {
+            boolean seleccionado = clave.equals(nombre);
+            boton.setBackground(seleccionado ? AZUL : FONDO_MENU);
+            boton.setForeground(seleccionado ? Color.WHITE : AZUL_OSCURO);
+        });
         cardLayout.show(panelContenido, nombre);
         if (nombre.equals("Medicamentos")) vistaMedicamentos.recargar();
         if (nombre.equals("Usuarios")) controladorUsuarios.actualizar();

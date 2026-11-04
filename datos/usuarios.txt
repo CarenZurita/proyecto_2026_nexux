@@ -1,4 +1,5 @@
 admin;Administrador;ADMINISTRADOR;true;LRpiTqCO/g4TYW8PxZlXjQ==;HRtWjhJcaAdfd2NE2cpnm08DUUK5LdLK54pzhTAJsRg=;eVOW+Y4mEDffHksjE3ISSQ==;Ms/rYtX6VKjoSp9pXOzLA39q4tbq72NdOlUvzKKSzRE=;FurPqBPV4sANHC5Zm2dgOg==;VkVKUhXifrKYHRj81hvySiXWrzAT7OYmeS2s4bondA0=;0;0;1
 adrian1;adrian vargas;ENCARGADO;true;WfcVsCwJNrfbH0lnm3aUxQ==;h31fGIPHbqBPg/iHwxKPpbz59zPeQ75qI/xymQt8/a8=;2
-ramiro1;ramiro vargas;ENCARGADO;false;T9GqE+JF2sOz3vIknzwlSA==;wD2o6yIP3wMddmpX9YWQXv4zCeWImVC18OBkUTXQD9k=;3
+ramiro1;ramiro vargas;ENCARGADO;true;T9GqE+JF2sOz3vIknzwlSA==;wD2o6yIP3wMddmpX9YWQXv4zCeWImVC18OBkUTXQD9k=;3
 caren;Caren Zurita Mallcu;ENCARGADO;true;Lu8+1DWRYDddSzujdrEQUg==;Zii8R/vMM3ibRjgD2NraM9LahPeOnbjfPbh+0sD/6+A=;4
+jdmhm;Juan Daniel;ADMINISTRADOR;true;E0QBy1faKmsK2qDb11s8pA==;jT7KzMfcv/HcfKSE73TZm1YfTGU1OHxHzzr1pqg+j/U=;aCUbQNMhMq+1Xz3fQZDgng==;rD+wHRgddZiUoVAOpvXuHrb8SXC3fQq7ma8Z3KXbP/U=;zHwuc+mec4T3lv3aVjUKsA==;jXST3kBaOj5osy8Mdh/O3XP2iaZ8F3pAPwVhZKPGp8I=;0;0;5

@@ -28,9 +28,12 @@ public class MenuEncargadoView extends JFrame {
 
     private String pantallaActual = "Inicio";
 
-    // COLORES IGUALES AL ADMINISTRADOR
+    // COLORES COMPARTIDOS CON EL PANEL DEL ADMINISTRADOR
     private final Color AZUL_OSCURO = new Color(30, 41, 59);
     private final Color AZUL = new Color(37, 99, 235);
+    private final Color FONDO_MENU = new Color(0xE8F7F2);
+    private final Color FONDO_MENU_HOVER = new Color(0xD5ECE6);
+    private final Color AZUL_HOVER = new Color(29, 78, 216);
     private final Color FONDO = new Color(241, 245, 249);
     private final Color GRIS = new Color(100, 116, 139);
 
@@ -69,12 +72,12 @@ public class MenuEncargadoView extends JFrame {
         setLayout(new BorderLayout());
         getContentPane().setBackground(FONDO);
 
-        // PANEL LATERAL IGUAL AL ADMINISTRADOR
+        // PANEL LATERAL EN TONOS CLAROS
         JPanel menuLateral =
                 new ComponentesRedondeados.Panel(
-                        new BorderLayout(), AZUL_OSCURO, 30);
+                        new BorderLayout(), FONDO_MENU, 30);
 
-        menuLateral.setBackground(AZUL_OSCURO);
+        menuLateral.setBackground(FONDO_MENU);
         menuLateral.setPreferredSize(new Dimension(230, 0));
 
         // LOGO
@@ -84,7 +87,7 @@ public class MenuEncargadoView extends JFrame {
                 SwingConstants.LEFT);
 
         logo.setIconTextGap(10);
-        logo.setForeground(Color.WHITE);
+        logo.setForeground(AZUL_OSCURO);
         logo.setFont(new Font("SansSerif", Font.BOLD, 22));
         logo.setBorder(
                 BorderFactory.createEmptyBorder(30, 15, 30, 10));
@@ -143,7 +146,7 @@ public class MenuEncargadoView extends JFrame {
         JPanel panelInferior =
                 new JPanel(new BorderLayout());
 
-        panelInferior.setBackground(AZUL_OSCURO);
+        panelInferior.setBackground(FONDO_MENU);
         panelInferior.setBorder(
                 BorderFactory.createEmptyBorder(10, 12, 20, 12));
 
@@ -173,8 +176,8 @@ public class MenuEncargadoView extends JFrame {
         boton.setFont(
                 new Font("SansSerif", Font.BOLD, 15));
 
-        boton.setBackground(AZUL_OSCURO);
-        boton.setForeground(Color.WHITE);
+        boton.setBackground(FONDO_MENU);
+        boton.setForeground(AZUL_OSCURO);
 
         boton.setFocusPainted(false);
         boton.setOpaque(true);
@@ -193,15 +196,20 @@ public class MenuEncargadoView extends JFrame {
 
             @Override
             public void mouseEntered(MouseEvent e) {
+                boolean seleccionado = nombre.equals(pantallaActual);
                 boton.setBackground(
-                        new Color(51, 65, 85));
+                        seleccionado ? AZUL_HOVER : FONDO_MENU_HOVER);
+                boton.setForeground(
+                        seleccionado ? Color.WHITE : AZUL_OSCURO);
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
+                boolean seleccionado = nombre.equals(pantallaActual);
                 boton.setBackground(
-                        nombre.equals(pantallaActual)
-                                ? AZUL : AZUL_OSCURO);
+                        seleccionado ? AZUL : FONDO_MENU);
+                boton.setForeground(
+                        seleccionado ? Color.WHITE : AZUL_OSCURO);
             }
         });
 
@@ -455,9 +463,11 @@ public class MenuEncargadoView extends JFrame {
         for (Map.Entry<String, JButton> entrada
                 : botonesMenu.entrySet()) {
 
+            boolean seleccionado = entrada.getKey().equals(nombre);
             entrada.getValue().setBackground(
-                    entrada.getKey().equals(nombre)
-                            ? AZUL : AZUL_OSCURO);
+                    seleccionado ? AZUL : FONDO_MENU);
+            entrada.getValue().setForeground(
+                    seleccionado ? Color.WHITE : AZUL_OSCURO);
         }
     }
 

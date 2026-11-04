@@ -1,3 +1,4 @@
-Paracetamol;DEMO-001;Analgésico;Tabletas;Genérico;13;2028-12-31;5.0;5;DemoFarma
+Paracetamol;DEMO-001;Analgésico;Tabletas;Genérico;11;2028-12-31;5.0;5;DemoFarma
 Amoxicilina;DEMO-002;Antibiótico;Cápsulas;Genérico;10;2028-12-31;8.5;4;DemoFarma
-Ibuprofeno;DEMO-003;Antiinflamatorio;Tabletas;Genérico;16;2029-06-30;6.0;5;DemoFarma
+Ibuprofeno;DEMO-003;Antiinflamatorio;Tabletas;Genérico;15;2029-06-30;6.0;5;DemoFarma
+Amoxicilina;MED-001;Analgésico;Tabletas 10ml;COFAR;50;2029-07-31;20.3;0;Sin marca

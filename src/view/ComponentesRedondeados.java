@@ -22,15 +22,21 @@ public final class ComponentesRedondeados {
             Graphics2D d = preparar(g);
             d.translate(x + tamano / 2.0, y + tamano / 2.0);
             d.scale(tamano / 96.0, tamano / 96.0);
+            Color fondoBoton = c.getBackground();
+            boolean botonActivo = c instanceof AbstractButton
+                    && (new Color(37, 99, 235).equals(fondoBoton)
+                    || new Color(29, 78, 216).equals(fondoBoton));
             Color color = switch (nombre) {
                 case "medicamentos" -> new Color(16, 185, 129);
                 case "ventas" -> new Color(37, 99, 235);
                 case "usuarios" -> new Color(139, 92, 246);
                 case "reportes" -> new Color(245, 158, 11);
+                case "inicio", "configuracion", "configuración" ->
+                    botonActivo ? Color.WHITE : new Color(30, 41, 59);
                 default -> Color.WHITE;
             };
             if (!color.equals(Color.WHITE)) {
-                // Fondo claro opaco: conserva el contraste sobre el menú oscuro.
+                // Fondo claro opaco para distinguir el icono del panel lateral.
                 d.setColor(new Color((color.getRed() * 28 + 255 * 227) / 255,
                         (color.getGreen() * 28 + 255 * 227) / 255,
                         (color.getBlue() * 28 + 255 * 227) / 255));
