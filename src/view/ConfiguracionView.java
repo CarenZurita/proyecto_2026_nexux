@@ -22,10 +22,8 @@ public class ConfiguracionView extends JPanel {
         setBackground(new Color(0xF1F5F9));
         setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
-        JPanel encabezado = new JPanel(new GridLayout(2, 1, 0, 8));
-        encabezado.setOpaque(false);
-        encabezado.add(etiqueta("Configuración", 28, Font.BOLD, TEXTO));
-        encabezado.add(etiqueta("Administra la seguridad de tu cuenta.", 15, Font.PLAIN, GRIS));
+        JPanel encabezado = EstiloSistema.encabezado("configuracion", "Configuración",
+                "Administra la seguridad de tu cuenta.");
         add(encabezado, BorderLayout.NORTH);
 
         JPanel contenido = new JPanel();

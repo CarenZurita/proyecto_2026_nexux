@@ -17,7 +17,7 @@ public class UsuarioFormDialog extends JDialog {
     private final JComboBox<String> rol = new JComboBox<>(new String[]{"Encargado", "Administrador"});
     private final JTextArea error = new JTextArea(2, 24);
     private final JButton guardar = UsuarioView.boton("Guardar", UsuarioView.AZUL);
-    private final JButton cancelar = new JButton("Cancelar");
+    private final JButton cancelar = new ComponentesRedondeados.Boton("Cancelar");
     private final Integer id;
     private final boolean cuentaPropia;
     private boolean guardando;
@@ -54,6 +54,10 @@ public class UsuarioFormDialog extends JDialog {
         error.setForeground(new Color(0xB91C1C)); error.setFont(new Font("SansSerif", Font.PLAIN, 12));
         agregar(panel, g, error, 2, 8);
         JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0)); botones.setOpaque(false);
+        cancelar.setBackground(new Color(0xE2E8F0));
+        cancelar.setForeground(UsuarioView.TEXTO);
+        cancelar.setFont(new Font("SansSerif", Font.BOLD, 13));
+        cancelar.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
         botones.add(cancelar); botones.add(guardar); agregar(panel, g, botones, 2, 0);
         if (cuenta != null) {
             nombre.setText(cuenta.nombre()); usuario.setText(cuenta.usuario());
@@ -67,6 +71,7 @@ public class UsuarioFormDialog extends JDialog {
         getRootPane().setDefaultButton(guardar);
         getRootPane().registerKeyboardAction(e -> { if (!guardando) cerrar(); },
                 KeyStroke.getKeyStroke("ESCAPE"), JComponent.WHEN_IN_FOCUSED_WINDOW);
+        EstiloSistema.aplicarCampos(panel);
         setContentPane(panel); pack(); setResizable(false); setLocationRelativeTo(padre);
     }
     private static void agregar(JPanel p, GridBagConstraints g, Component c, int arriba, int abajo) {

@@ -19,7 +19,7 @@ public class ReportesView extends JPanel {
     public ReportesView(VencimientoView vistaVencimientos, ReporteVentasView vistaVentas) {
         super(new BorderLayout());
         setOpaque(false);
-        setBorder(BorderFactory.createEmptyBorder(24, 0, 0, 0));
+        setBorder(BorderFactory.createEmptyBorder(18, 0, 0, 0));
         JPanel botones = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         botones.setOpaque(false);
         botones.add(vencimientos); botones.add(Box.createHorizontalStrut(12)); botones.add(ventas);

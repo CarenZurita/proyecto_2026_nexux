@@ -1,6 +1,6 @@
 # GestorFarmacia
 
-Aplicación de consola para gestionar medicamentos, ventas, vencimientos y usuarios. Requiere JDK 17 o superior y Maven.
+Aplicación de consola para gestionar medicamentos, ventas, vencimientos y usuarios. Requiere JDK 25 o superior y Maven.
 
 ## Compilar y probar
 

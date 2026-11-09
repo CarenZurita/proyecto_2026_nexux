@@ -44,10 +44,10 @@ public class ReporteVentasView extends JPanel {
         super(new BorderLayout(0, 14));
         setOpaque(true);
         setBackground(new Color(0xF1F5F9));
-        setBorder(BorderFactory.createEmptyBorder(18, 0, 0, 0));
+        setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
         JPanel cabecera = new JPanel(new BorderLayout(0, 10));
         cabecera.setOpaque(false);
-        cabecera.add(etiqueta("Reporte de ventas", 20, true), BorderLayout.NORTH);
+        cabecera.add(EstiloSistema.subtituloSeccion("Ventas"), BorderLayout.NORTH);
         cabecera.add(crearFiltros(), BorderLayout.CENTER);
         resumen.setForeground(GRIS);
         cabecera.add(resumen, BorderLayout.SOUTH);
@@ -88,6 +88,7 @@ public class ReporteVentasView extends JPanel {
             hasta.setText("");
             alConsultar.run();
         });
+        EstiloSistema.aplicarCampos(this);
     }
 
     private JPanel crearFiltros() {
@@ -291,12 +292,13 @@ public class ReporteVentasView extends JPanel {
     private static JScrollPane scroll(JTable tabla) {
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setColumnHeaderView(tabla.getTableHeader());
-        scroll.setBorder(BorderFactory.createLineBorder(new Color(0xE2E8F0)));
+        scroll.setBorder(BorderFactory.createLineBorder(EstiloSistema.BORDE));
         scroll.getViewport().setBackground(Color.WHITE);
         return scroll;
     }
 
     private static void prepararTabla(JTable tabla) {
+        EstiloSistema.aplicarTabla(tabla);
         tabla.setFont(new Font("SansSerif", Font.PLAIN, 13));
         tabla.setForeground(TEXTO);
         tabla.setBackground(Color.WHITE);
@@ -310,8 +312,8 @@ public class ReporteVentasView extends JPanel {
         tabla.setAutoCreateRowSorter(true);
         tabla.getTableHeader().setReorderingAllowed(false);
         tabla.getTableHeader().setPreferredSize(new Dimension(0, 42));
-        tabla.getTableHeader().setBackground(new Color(0xF8FAFC));
-        tabla.getTableHeader().setForeground(TEXTO);
+        tabla.getTableHeader().setBackground(EstiloSistema.ENCABEZADO_TABLA);
+        tabla.getTableHeader().setForeground(new Color(0x1E40AF));
         tabla.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
         for (Class<?> clase : new Class<?>[]{Object.class, String.class, LocalDate.class,
                 Integer.class, Long.class, BigDecimal.class}) {

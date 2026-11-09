@@ -231,15 +231,19 @@ public abstract class Usuario {
     String aLinea() {
         String base = usuario + ";" + nombre + ";" + rol.getNombre() + ";"
                 + activo + ";" + sal + ";" + contraseña;
-        if (!tieneRecuperacion()) return base + ";" + id;
-        return base + ";" + salColor + ";" + respuestaColor + ";" + salComida
-                + ";" + respuestaComida + ";" + intentosRecuperacion
-                + ";" + recuperacionBloqueadaHasta + ";" + id;
+        if (!tieneRecuperacion()) {
+            return id > 0 ? base + ";" + id : base;
+        }
+        String conRecuperacion = base + ";" + salColor + ";" + respuestaColor + ";"
+                + salComida + ";" + respuestaComida + ";" + intentosRecuperacion
+                + ";" + recuperacionBloqueadaHasta;
+        return id > 0 ? conRecuperacion + ";" + id : conRecuperacion;
     }
 
     static Usuario desdeLinea(String linea) {
         String[] originales = linea.split(";", -1);
-        boolean conId = originales.length == 7 || originales.length == 13;
+        boolean conId = (originales.length == 7 || originales.length == 13)
+                && !originales[originales.length - 1].isBlank();
         String[] datos = conId ? Arrays.copyOf(originales, originales.length - 1) : originales;
         try {
             if ((datos.length != 6 && datos.length != 12) || !datos[0].matches("[a-z0-9._-]{3,20}")
@@ -270,12 +274,17 @@ public abstract class Usuario {
                 }
             }
             if (conId) {
-                cuenta.id = Integer.parseInt(originales[originales.length - 1]);
-                if (cuenta.id <= 0) throw new IllegalArgumentException("ID inválido");
+                int idLeido = Integer.parseInt(originales[originales.length - 1]);
+                if (idLeido < 0) {
+                    throw new IllegalArgumentException("ID inválido");
+                }
+                if (idLeido > 0) {
+                    cuenta.id = idLeido;
+                }
             }
             return cuenta;
         } catch (IllegalArgumentException e) {
-            if ("Cuenta inválida".equals(e.getMessage())) {
+            if ("Cuenta inválida".equals(e.getMessage()) || "ID inválido".equals(e.getMessage())) {
                 throw e;
             }
             throw new IllegalArgumentException("Cuenta inválida", e);

@@ -31,8 +31,8 @@ public class MenuEncargadoView extends JFrame {
     // COLORES COMPARTIDOS CON EL PANEL DEL ADMINISTRADOR
     private final Color AZUL_OSCURO = new Color(30, 41, 59);
     private final Color AZUL = new Color(37, 99, 235);
-    private final Color FONDO_MENU = new Color(0xE8F7F2);
-    private final Color FONDO_MENU_HOVER = new Color(0xD5ECE6);
+    private final Color FONDO_MENU = new Color(0xCDE5FA);
+    private final Color FONDO_MENU_HOVER = new Color(0xB8D9F0);
     private final Color AZUL_HOVER = new Color(29, 78, 216);
     private final Color FONDO = new Color(241, 245, 249);
     private final Color GRIS = new Color(100, 116, 139);
@@ -123,6 +123,7 @@ public class MenuEncargadoView extends JFrame {
                         "Cerrar sesión",
                         new ComponentesRedondeados.IconoModulo(
                                 "salir", 24));
+        ((ComponentesRedondeados.Boton) cerrarSesion).setArco(12);
 
         cerrarSesion.setIconTextGap(10);
         cerrarSesion.setBackground(new Color(239, 68, 68));
@@ -170,6 +171,7 @@ public class MenuEncargadoView extends JFrame {
                 nombre,
                 new ComponentesRedondeados.IconoModulo(
                         nombre, 32));
+        ((ComponentesRedondeados.Boton) boton).setArco(12);
 
         boton.setIconTextGap(10);
 
@@ -244,12 +246,8 @@ public class MenuEncargadoView extends JFrame {
                 new Font("SansSerif", Font.PLAIN, 16));
         descripcion.setForeground(GRIS);
 
-        JPanel encabezado =
-                new JPanel(new GridLayout(2, 1, 0, 10));
-
-        encabezado.setOpaque(false);
-        encabezado.add(titulo);
-        encabezado.add(descripcion);
+        JPanel encabezado = EstiloSistema.encabezado(
+                "inicio", titulo.getText(), descripcion.getText());
 
         inicio.add(encabezado, BorderLayout.NORTH);
 
@@ -291,22 +289,6 @@ public class MenuEncargadoView extends JFrame {
         ventas.setBackground(FONDO);
         ventas.setBorder(
                 BorderFactory.createEmptyBorder(30, 30, 30, 30));
-
-        JLabel tituloVentas =
-                new JLabel("Registro de ventas");
-
-        tituloVentas.setFont(
-                new Font("SansSerif", Font.BOLD, 28));
-        tituloVentas.setForeground(AZUL_OSCURO);
-
-        JPanel encabezadoVentas =
-                new JPanel(new BorderLayout());
-
-        encabezadoVentas.setOpaque(false);
-        encabezadoVentas.add(
-                tituloVentas, BorderLayout.CENTER);
-
-        ventas.add(encabezadoVentas, BorderLayout.NORTH);
 
         // SE CONSERVA EL FORMULARIO ORIGINAL
         VentaView vistaVentas = new VentaView(sesion);
@@ -473,15 +455,8 @@ public class MenuEncargadoView extends JFrame {
 
     // CERRAR SESION
     private void cerrarSesion() {
-
-        int respuesta = JOptionPane.showConfirmDialog(
-                this,
-                "¿Desea cerrar sesión?",
-                "Confirmar",
-                JOptionPane.YES_NO_OPTION);
-
-        if (respuesta == JOptionPane.YES_OPTION) {
-
+        if (LoginView.mostrarConfirmacion(this, "Cerrar sesión", "¿Desea cerrar sesión?",
+                LoginView.TonoDialogo.ADVERTENCIA)) {
             sesion.cerrarSesion();
             dispose();
             alCerrarSesion.run();

@@ -63,7 +63,7 @@ public class MedicamentoView extends JPanel {
     private static final Color OSCURO = new Color(0x1E293B);
     private static final Color FONDO = new Color(0xF1F5F9);
     private static final Color TEXTO_SECUNDARIO = new Color(0x64748B);
-    private static final Color BORDE = new Color(0xDCE6F1);
+    private static final Color BORDE = EstiloSistema.BORDE;
     private static final Color ROJO = new Color(0xEF4444);
     private static final Color BLUE = new Color(0x2563EB);
     private static final Color RED_ACCION = new Color(0xF43737);
@@ -101,24 +101,11 @@ public class MedicamentoView extends JPanel {
     private void construirInterfaz() {
         setLayout(new BorderLayout(0, 22));
         setBackground(FONDO);
+        setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
-        JPanel encabezado = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
-        encabezado.setOpaque(false);
-        JLabel icono = new JLabel(new IconoMedicamento(54));
-        JLabel titulo = new JLabel("Gestión de medicamentos");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 27));
-        titulo.setForeground(OSCURO);
-        JLabel subtitulo = new JLabel("Consulta y administra el inventario de la farmacia");
-        subtitulo.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        subtitulo.setForeground(TEXTO_SECUNDARIO);
-        JPanel titulos = new JPanel();
-        titulos.setOpaque(false);
-        titulos.setLayout(new javax.swing.BoxLayout(titulos, javax.swing.BoxLayout.Y_AXIS));
-        titulos.add(titulo);
-        titulos.add(javax.swing.Box.createVerticalStrut(4));
-        titulos.add(subtitulo);
-        encabezado.add(icono);
-        encabezado.add(titulos);
+        JPanel encabezado = EstiloSistema.encabezado("medicamentos",
+                "Gestión de medicamentos",
+                "Consulta y administra el inventario de la farmacia");
         add(encabezado, BorderLayout.NORTH);
 
         RoundedPanel contenido = new RoundedPanel(18, Color.WHITE, BORDE);
@@ -141,6 +128,7 @@ public class MedicamentoView extends JPanel {
         }
         contenido.add(herramientas, BorderLayout.NORTH);
 
+        EstiloSistema.aplicarTabla(tabla);
         tabla.setRowHeight(48);
         tabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tabla.setAutoCreateRowSorter(true);
@@ -153,8 +141,8 @@ public class MedicamentoView extends JPanel {
         tabla.setFillsViewportHeight(true);
         tabla.getTableHeader().setPreferredSize(new java.awt.Dimension(0, 42));
         tabla.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
-        tabla.getTableHeader().setBackground(new Color(0xF1F6FC));
-        tabla.getTableHeader().setForeground(OSCURO);
+        tabla.getTableHeader().setBackground(EstiloSistema.ENCABEZADO_TABLA);
+        tabla.getTableHeader().setForeground(new Color(0x1E40AF));
         tabla.getTableHeader().setReorderingAllowed(false);
         tabla.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDE));
         tabla.setSelectionBackground(new Color(0xDBEAFE));
@@ -208,6 +196,7 @@ public class MedicamentoView extends JPanel {
             }
         });
         registroVisible = cantidadRegistros;
+        EstiloSistema.aplicarCampos(this);
         mostrarFiltrados();
     }
 
@@ -357,6 +346,7 @@ public class MedicamentoView extends JPanel {
         buttons.add(save);
         root.add(buttons, BorderLayout.SOUTH);
 
+        EstiloSistema.aplicarCampos(root);
         dialogo.setContentPane(root);
         dialogo.pack();
         dialogo.setMinimumSize(new java.awt.Dimension(720, 480));
@@ -587,90 +577,10 @@ public class MedicamentoView extends JPanel {
     }
 
     private boolean confirmarEliminacion(Medicamento medicamento) {
-        JDialog confirmacion = new JDialog(SwingUtilities.getWindowAncestor(this),
-                "Confirmar eliminación", Dialog.ModalityType.APPLICATION_MODAL);
-        confirmacion.setUndecorated(true);
-        confirmacion.setResizable(false);
-        confirmacion.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-        boolean[] confirmado = {false};
-
-        RoundedPanel marco = new RoundedPanel(18, new Color(0xE7EEF7), new Color(0x7892B3));
-        marco.setLayout(new BorderLayout());
-        marco.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-
-        RoundedPanel tarjeta = new RoundedPanel(14, Color.WHITE, new Color(0xDCE6F1));
-        tarjeta.setLayout(new BorderLayout(0, 8));
-        tarjeta.setBorder(BorderFactory.createEmptyBorder(8, 22, 22, 22));
-
-        JPanel barra = new JPanel(new BorderLayout());
-        barra.setOpaque(false);
-        JLabel tituloBarra = new JLabel("Confirmación");
-        tituloBarra.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        tituloBarra.setForeground(TEXTO_SECUNDARIO);
-        JButton cerrar = new JButton("×");
-        cerrar.setFont(new Font("SansSerif", Font.PLAIN, 20));
-        cerrar.setForeground(TEXTO_SECUNDARIO);
-        cerrar.setBorderPainted(false);
-        cerrar.setContentAreaFilled(false);
-        cerrar.setFocusPainted(false);
-        cerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        cerrar.addActionListener(e -> confirmacion.dispose());
-        barra.add(tituloBarra, BorderLayout.WEST);
-        barra.add(cerrar, BorderLayout.EAST);
-        tarjeta.add(barra, BorderLayout.NORTH);
-
-        JPanel detalle = new JPanel();
-        detalle.setOpaque(false);
-        detalle.setLayout(new javax.swing.BoxLayout(detalle, javax.swing.BoxLayout.Y_AXIS));
-        JLabel icono = new JLabel(new IconoAdvertencia(58));
-        icono.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel titulo = new JLabel("Confirmar eliminación");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 20));
-        titulo.setForeground(new Color(0x173B68));
-        titulo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        String nombreSeguro = medicamento.getNombre()
-                .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-        JLabel mensaje = new JLabel("<html><div style='width:330px;text-align:center;'>"
-                + "¿Está seguro de eliminar el medicamento <b>\""
-                + nombreSeguro + "\"</b> del inventario?</div></html>");
-        mensaje.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        mensaje.setForeground(new Color(0x36577D));
-        mensaje.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
-        acciones.setOpaque(false);
-        JButton cancelar = boton("Cancelar", new Color(0xEAF2FB));
-        cancelar.setForeground(OSCURO);
-        cancelar.addActionListener(e -> confirmacion.dispose());
-        JButton eliminar = boton("Eliminar", RED_ACCION);
-        eliminar.addActionListener(e -> {
-            confirmado[0] = true;
-            confirmacion.dispose();
-        });
-        acciones.add(cancelar);
-        acciones.add(eliminar);
-
-        detalle.add(icono);
-        detalle.add(javax.swing.Box.createVerticalStrut(10));
-        detalle.add(titulo);
-        detalle.add(javax.swing.Box.createVerticalStrut(14));
-        detalle.add(mensaje);
-        detalle.add(javax.swing.Box.createVerticalStrut(22));
-        detalle.add(acciones);
-        tarjeta.add(detalle, BorderLayout.CENTER);
-        marco.add(tarjeta, BorderLayout.CENTER);
-
-        confirmacion.setContentPane(marco);
-        confirmacion.getRootPane().setDefaultButton(cancelar);
-        confirmacion.getRootPane().registerKeyboardAction(
-                e -> confirmacion.dispose(),
-                javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
-                javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
-        confirmacion.setMinimumSize(new java.awt.Dimension(430, 310));
-        confirmacion.pack();
-        confirmacion.setLocationRelativeTo(this);
-        confirmacion.setVisible(true);
-        return confirmado[0];
+        String nombre = medicamento.getNombre();
+        String mensaje = "¿Está seguro de eliminar el medicamento \"" + nombre + "\" del inventario?";
+        return LoginView.mostrarConfirmacion(this, "Confirmar eliminación", mensaje,
+                LoginView.TonoDialogo.DESTRUCTIVO);
     }
 
     private void validarSesionAdministradora() {
@@ -689,73 +599,7 @@ public class MedicamentoView extends JPanel {
     }
 
     private void mostrarAlertaError(Component padre, String mensaje) {
-        JDialog alerta = new JDialog(SwingUtilities.getWindowAncestor(padre),
-                "Error al guardar", Dialog.ModalityType.APPLICATION_MODAL);
-        alerta.setUndecorated(true);
-        alerta.setResizable(false);
-        alerta.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-
-        RoundedPanel marco = new RoundedPanel(18, new Color(0xE7EEF7), new Color(0x7892B3));
-        marco.setLayout(new BorderLayout());
-        marco.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-
-        RoundedPanel tarjeta = new RoundedPanel(14, Color.WHITE, new Color(0xDCE6F1));
-        tarjeta.setLayout(new BorderLayout(0, 8));
-        tarjeta.setBorder(BorderFactory.createEmptyBorder(8, 20, 20, 20));
-
-        JPanel barra = new JPanel(new BorderLayout());
-        barra.setOpaque(false);
-        JLabel tituloBarra = new JLabel("Aviso");
-        tituloBarra.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        tituloBarra.setForeground(TEXTO_SECUNDARIO);
-        JButton cerrar = new JButton("×");
-        cerrar.setFont(new Font("SansSerif", Font.PLAIN, 20));
-        cerrar.setForeground(TEXTO_SECUNDARIO);
-        cerrar.setBorderPainted(false);
-        cerrar.setContentAreaFilled(false);
-        cerrar.setFocusPainted(false);
-        cerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        cerrar.addActionListener(e -> alerta.dispose());
-        barra.add(tituloBarra, BorderLayout.WEST);
-        barra.add(cerrar, BorderLayout.EAST);
-        tarjeta.add(barra, BorderLayout.NORTH);
-
-        JPanel detalle = new JPanel();
-        detalle.setOpaque(false);
-        detalle.setLayout(new javax.swing.BoxLayout(detalle, javax.swing.BoxLayout.Y_AXIS));
-        JLabel icono = new JLabel(new IconoAlerta(56));
-        icono.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel titulo = new JLabel("Error al guardar");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 20));
-        titulo.setForeground(new Color(0x173B68));
-        titulo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        String textoSeguro = mensaje == null ? "" : mensaje
-                .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                .replace("\n", "<br>");
-        JLabel texto = new JLabel("<html><div style='width:330px;text-align:center;'>"
-                + textoSeguro + "</div></html>");
-        texto.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        texto.setForeground(new Color(0x36577D));
-        texto.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JButton aceptar = boton("Aceptar", AZUL);
-        aceptar.setAlignmentX(Component.CENTER_ALIGNMENT);
-        aceptar.addActionListener(e -> alerta.dispose());
-        detalle.add(icono);
-        detalle.add(javax.swing.Box.createVerticalStrut(10));
-        detalle.add(titulo);
-        detalle.add(javax.swing.Box.createVerticalStrut(12));
-        detalle.add(texto);
-        detalle.add(javax.swing.Box.createVerticalStrut(22));
-        detalle.add(aceptar);
-        tarjeta.add(detalle, BorderLayout.CENTER);
-        marco.add(tarjeta, BorderLayout.CENTER);
-
-        alerta.setContentPane(marco);
-        alerta.getRootPane().setDefaultButton(aceptar);
-        alerta.setMinimumSize(new java.awt.Dimension(410, 280));
-        alerta.pack();
-        alerta.setLocationRelativeTo(padre);
-        alerta.setVisible(true);
+        LoginView.mostrarAlertaError(padre, "Error", mensaje);
     }
 
     private static class CampoBusqueda extends JTextField {

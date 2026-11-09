@@ -8,6 +8,7 @@ import model.GestorUsuarios.FichaUsuario;
 import model.Rol;
 import model.Usuario;
 import service.UsuarioService;
+import view.LoginView;
 import view.UsuarioFormDialog;
 import view.UsuarioView;
 
@@ -69,12 +70,15 @@ public class UsuarioController {
     private void cambiarEstado(FichaUsuario cuenta) {
         if (ocupado || !sesionActiva()) return;
         if (cuenta.id() == sesion.getId()) {
-            JOptionPane.showMessageDialog(vista, "No puedes desactivar tu propia cuenta.", "Cuenta en uso", JOptionPane.INFORMATION_MESSAGE); return;
+            LoginView.mostrarAlertaError(vista, "Cuenta en uso", "No puedes desactivar tu propia cuenta.");
+            return;
         }
         String accion = cuenta.activo() ? "Desactivar" : "Activar";
-        if (JOptionPane.showConfirmDialog(vista, accion + " a " + cuenta.nombre() + " (" + cuenta.usuario() + ")?\n"
-                + (cuenta.activo() ? "El registro se conservará y ya no podrá iniciar sesión." : "Podrá volver a iniciar sesión."),
-                accion + " usuario", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE) != JOptionPane.YES_OPTION) return;
+        String mensaje = accion + " a " + cuenta.nombre() + " (" + cuenta.usuario() + ")?\n"
+                + (cuenta.activo() ? "El registro se conservará y ya no podrá iniciar sesión." : "Podrá volver a iniciar sesión.");
+        LoginView.TonoDialogo tono = cuenta.activo()
+                ? LoginView.TonoDialogo.DESTRUCTIVO : LoginView.TonoDialogo.INFORMACION;
+        if (!LoginView.mostrarConfirmacion(vista, accion + " usuario", mensaje, tono)) return;
         ocupado = true; vista.setCargando(true);
         new SwingWorker<Void, Void>() {
             @Override protected Void doInBackground() throws Exception {
@@ -84,7 +88,7 @@ public class UsuarioController {
                 ocupado = false; vista.setCargando(false);
                 try { get(); actualizar(); }
                 catch (InterruptedException e) { Thread.currentThread().interrupt(); actualizar(); }
-                catch (ExecutionException e) { JOptionPane.showMessageDialog(vista, detalle(e), "No se pudo cambiar el estado", JOptionPane.ERROR_MESSAGE); actualizar(); }
+                catch (ExecutionException e) { LoginView.mostrarAlertaError(vista, "No se pudo cambiar el estado", detalle(e)); actualizar(); }
             }
         }.execute();
     }

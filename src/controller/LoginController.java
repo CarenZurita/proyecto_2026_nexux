@@ -75,8 +75,7 @@ public class LoginController {
                     Thread.currentThread().interrupt();
                     vista.mostrarMensaje("La validación fue interrumpida. Vuelve a intentarlo.");
                 } catch (ExecutionException e) {
-                    JOptionPane.showMessageDialog(vista, mensajeError(e.getCause()),
-                            "No se pudo iniciar sesión", JOptionPane.ERROR_MESSAGE);
+                    LoginView.mostrarAlertaError(vista, "No se pudo iniciar sesión", mensajeError(e.getCause()));
                 }
             }
         }.execute();

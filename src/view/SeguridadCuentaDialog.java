@@ -64,6 +64,7 @@ public class SeguridadCuentaDialog extends JDialog {
         getRootPane().setDefaultButton(guardar);
         getRootPane().registerKeyboardAction(e -> { if (!guardando) cerrar(); },
                 KeyStroke.getKeyStroke("ESCAPE"), JComponent.WHEN_IN_FOCUSED_WINDOW);
+        EstiloSistema.aplicarCampos(panel);
         setContentPane(panel); pack(); setResizable(false); setLocationRelativeTo(padre);
     }
 
@@ -154,15 +155,15 @@ public class SeguridadCuentaDialog extends JDialog {
         @Override protected void paintComponent(Graphics g) {
             Graphics2D p = (Graphics2D) g.create();
             p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            p.setColor(getBackground()); p.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-            p.clip(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 20, 20));
+            p.setColor(getBackground()); p.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+            p.clip(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 8, 8));
             super.paintComponent(p); p.dispose();
         }
         @Override protected void paintBorder(Graphics g) {
             Graphics2D p = (Graphics2D) g.create();
             p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            p.setColor(hasFocus() ? new Color(0x2563EB) : new Color(0x94A3B8));
-            p.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20); p.dispose();
+            p.setColor(hasFocus() ? new Color(0x2563EB) : new Color(0xD1D5DB));
+            p.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8); p.dispose();
         }
     }
 }

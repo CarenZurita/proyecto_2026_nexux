@@ -27,8 +27,8 @@ public class MenuAdministradorView extends JFrame {
 
     private final Color AZUL_OSCURO = new Color(30, 41, 59);
     private final Color AZUL = new Color(37, 99, 235);
-    private final Color FONDO_MENU = new Color(0xE8F7F2);
-    private final Color FONDO_MENU_HOVER = new Color(0xD5ECE6);
+    private final Color FONDO_MENU = new Color(0xCDE5FA);
+    private final Color FONDO_MENU_HOVER = new Color(0xB8D9F0);
     private final Color AZUL_HOVER = new Color(29, 78, 216);
     private final Color FONDO = new Color(241, 245, 249);
     private final Color GRIS = new Color(100, 116, 139);
@@ -104,6 +104,7 @@ public class MenuAdministradorView extends JFrame {
         // CERRAR SESION
         JButton cerrarSesion = new ComponentesRedondeados.Boton("Cerrar sesión",
                 new ComponentesRedondeados.IconoModulo("salir", 24));
+        ((ComponentesRedondeados.Boton) cerrarSesion).setArco(12);
         cerrarSesion.setIconTextGap(10);
         cerrarSesion.setBackground(new Color(239, 68, 68));
         cerrarSesion.setForeground(Color.WHITE);
@@ -138,6 +139,7 @@ public class MenuAdministradorView extends JFrame {
 
         JButton boton = new ComponentesRedondeados.Boton(nombre,
                 new ComponentesRedondeados.IconoModulo(nombre, 32));
+        ((ComponentesRedondeados.Boton) boton).setArco(12);
         boton.setIconTextGap(10);
 
         boton.setFont(
@@ -243,15 +245,11 @@ public class MenuAdministradorView extends JFrame {
                 new Font("SansSerif", Font.PLAIN, 16));
         descripcion.setForeground(GRIS);
 
-        JPanel encabezado = new JPanel(
-                new GridLayout(nombre.equals("Ventas") ? 1 : 2, 1, 0, 10));
-
-        encabezado.setOpaque(false);
-        encabezado.add(titulo);
-        if (!nombre.equals("Ventas")) encabezado.add(descripcion);
+        JPanel encabezado = EstiloSistema.encabezado(
+                nombre.equals("Inicio") ? "inicio" : nombre,
+                titulo.getText(), descripcion.getText());
+        if (!nombre.equals("Ventas")) panel.add(encabezado, BorderLayout.NORTH);
         else panel.setLayout(new BorderLayout(0, 16));
-
-        panel.add(encabezado, BorderLayout.NORTH);
 
         if (nombre.equals("Inicio")) {
 
@@ -395,15 +393,8 @@ public class MenuAdministradorView extends JFrame {
 
     // CERRAR SESION
     private void cerrarSesion() {
-
-        int respuesta = JOptionPane.showConfirmDialog(
-                this,
-                "¿Desea cerrar sesión?",
-                "Confirmar",
-                JOptionPane.YES_NO_OPTION
-        );
-
-        if (respuesta == JOptionPane.YES_OPTION) {
+        if (LoginView.mostrarConfirmacion(this, "Cerrar sesión", "¿Desea cerrar sesión?",
+                LoginView.TonoDialogo.ADVERTENCIA)) {
             sesion.cerrarSesion();
             dispose();
             alCerrarSesion.run();
