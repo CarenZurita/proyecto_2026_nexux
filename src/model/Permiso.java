@@ -2,6 +2,9 @@ package model;
 
 import java.util.Objects;
 
+/**
+ * Valor del dominio que identifica una acción autorizada por su nombre estable.
+ */
 public final class Permiso {
     private final String nombre;
     private final String descripcion;

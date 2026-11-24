@@ -2,7 +2,12 @@ package model;
 
 import java.time.LocalDate;
 
+/**
+ * Entidad de inventario del modelo MVC: concentra los datos y las reglas
+ * locales de cantidad, precio, stock y vencimiento.
+ */
 public class Medicamento {
+    /** Estado calculado del medicamento respecto de su fecha de vencimiento. */
     public enum EstadoVencimiento {
         VIGENTE,
         PROXIMO_A_VENCER,
@@ -20,6 +25,19 @@ public class Medicamento {
     private double precio;
     private int stockMinimo;
 
+    /**
+     * Crea un medicamento con valores predeterminados de precio y stock mínimo.
+     *
+     * @param nombre nombre visible
+     * @param codigo identificador del inventario
+     * @param categoria categoría del medicamento
+     * @param presentacion presentación comercial
+     * @param laboratorio laboratorio de origen
+     * @param cantidadDisponible unidades disponibles; cero está permitido
+     * @param fechaVencimiento fecha en formato ISO-8601
+     * @throws IllegalArgumentException si algún campo requerido o valor numérico no es válido
+     * @throws java.time.format.DateTimeParseException si la fecha no es ISO-8601
+     */
     public Medicamento(String nombre, String codigo, String categoria,
                        String presentacion, String laboratorio,
                        int cantidadDisponible, String fechaVencimiento) {
@@ -27,6 +45,21 @@ public class Medicamento {
                 cantidadDisponible, fechaVencimiento, 0.0, 0);
     }
 
+    /**
+     * Crea un medicamento con precio y stock mínimo, usando la marca predeterminada.
+     *
+     * @param nombre nombre visible
+     * @param codigo identificador del inventario
+     * @param categoria categoría del medicamento
+     * @param presentacion presentación comercial
+     * @param laboratorio laboratorio de origen
+     * @param cantidadDisponible unidades disponibles; cero está permitido
+     * @param fechaVencimiento fecha en formato ISO-8601
+     * @param precio precio finito no negativo
+     * @param stockMinimo umbral no negativo para alertas de inventario
+     * @throws IllegalArgumentException si algún dato no cumple las reglas del modelo
+     * @throws java.time.format.DateTimeParseException si la fecha no es ISO-8601
+     */
     public Medicamento(String nombre, String codigo, String categoria,
                        String presentacion, String laboratorio,
                        int cantidadDisponible, String fechaVencimiento,
@@ -35,6 +68,22 @@ public class Medicamento {
                 cantidadDisponible, fechaVencimiento, precio, stockMinimo);
     }
 
+    /**
+     * Crea un medicamento con todos sus atributos de inventario.
+     *
+     * @param nombre nombre visible
+     * @param codigo identificador del inventario
+     * @param categoria categoría del medicamento
+     * @param presentacion presentación comercial
+     * @param laboratorio laboratorio de origen
+     * @param marca marca comercial
+     * @param cantidadDisponible unidades disponibles; cero está permitido
+     * @param fechaVencimiento fecha en formato ISO-8601
+     * @param precio precio finito no negativo
+     * @param stockMinimo umbral no negativo para alertas de inventario
+     * @throws IllegalArgumentException si algún dato no cumple las reglas del modelo
+     * @throws java.time.format.DateTimeParseException si la fecha no es ISO-8601
+     */
     public Medicamento(String nombre, String codigo, String categoria,
                        String presentacion, String laboratorio, String marca,
                        int cantidadDisponible, String fechaVencimiento,
@@ -66,6 +115,18 @@ public class Medicamento {
         System.out.println("Fecha de vencimiento: " + fechaVencimiento);
     }
 
+    /**
+     * Actualiza los campos de negocio sin alterar precio, marca ni stock mínimo.
+     *
+     * @param nombre nuevo nombre
+     * @param categoria nueva categoría
+     * @param presentacion nueva presentación
+     * @param laboratorio nuevo laboratorio
+     * @param cantidadDisponible nueva cantidad; cero está permitido
+     * @param fechaVencimiento nueva fecha ISO-8601
+     * @throws IllegalArgumentException si un campo no es válido
+     * @throws java.time.format.DateTimeParseException si la fecha no es ISO-8601
+     */
     public void actualizarInfo(String nombre, String categoria,
                                String presentacion, String laboratorio,
                                int cantidadDisponible, String fechaVencimiento) {
@@ -73,6 +134,20 @@ public class Medicamento {
                 cantidadDisponible, fechaVencimiento, precio, stockMinimo);
     }
 
+    /**
+     * Actualiza datos básicos, cantidad, fecha y precio sin cambiar marca o stock mínimo.
+     *
+     * @param nombre nuevo nombre
+     * @param categoria nueva categoría
+     * @param presentacion nueva presentación
+     * @param laboratorio nuevo laboratorio
+     * @param cantidadDisponible nueva cantidad; cero está permitido
+     * @param fechaVencimiento nueva fecha ISO-8601
+     * @param precio nuevo precio finito no negativo
+     * @param stockMinimo umbral no negativo
+     * @throws IllegalArgumentException si un campo no es válido
+     * @throws java.time.format.DateTimeParseException si la fecha no es ISO-8601
+     */
     public void actualizarInfo(String nombre, String categoria,
                                String presentacion, String laboratorio,
                                int cantidadDisponible, String fechaVencimiento,
@@ -89,6 +164,21 @@ public class Medicamento {
         this.stockMinimo = stockMinimo;
     }
 
+    /**
+     * Actualiza los campos editables del medicamento, incluida la marca.
+     *
+     * @param nombre nuevo nombre
+     * @param categoria nueva categoría
+     * @param presentacion nueva presentación
+     * @param laboratorio nuevo laboratorio
+     * @param marca nueva marca
+     * @param cantidadDisponible nueva cantidad; cero está permitido
+     * @param fechaVencimiento nueva fecha ISO-8601
+     * @param precio nuevo precio finito no negativo
+     * @param stockMinimo umbral no negativo
+     * @throws IllegalArgumentException si un campo no es válido
+     * @throws java.time.format.DateTimeParseException si la fecha no es ISO-8601
+     */
     public void actualizarInfo(String nombre, String categoria,
                                String presentacion, String laboratorio, String marca,
                                int cantidadDisponible, String fechaVencimiento,
@@ -106,6 +196,14 @@ public class Medicamento {
         this.stockMinimo = stockMinimo;
     }
 
+    /**
+     * Clasifica el vencimiento comparándolo con la fecha actual y el plazo de aviso.
+     *
+     * @param diasAviso cantidad de días de anticipación, no negativa
+     * @return estado vigente, próximo a vencer o vencido
+     * @throws IllegalArgumentException si el plazo es negativo
+     * @throws java.time.DateTimeException si el cálculo excede el rango de fechas
+     */
     public EstadoVencimiento controlarMedicamento(int diasAviso) {
         if (diasAviso < 0) {
             throw new IllegalArgumentException("Los días de aviso no pueden ser negativos.");
@@ -175,6 +273,12 @@ public class Medicamento {
         return categoria;
     }
 
+    /**
+     * Reduce el stock solo si la cantidad es positiva y no supera lo disponible.
+     *
+     * @param cantidad unidades que se descuentan
+     * @throws IllegalArgumentException si la cantidad no es válida
+     */
     public void reducirCantidad(int cantidad) {
         if (cantidad <= 0 || cantidad > cantidadDisponible) {
             throw new IllegalArgumentException("La cantidad a reducir no es válida.");
@@ -182,6 +286,12 @@ public class Medicamento {
         cantidadDisponible -= cantidad;
     }
 
+    /**
+     * Aumenta el stock con una cantidad estrictamente positiva.
+     *
+     * @param cantidad unidades que se reponen
+     * @throws IllegalArgumentException si la cantidad no es positiva
+     */
     public void reponerCantidad(int cantidad) {
         if (cantidad <= 0) {
             throw new IllegalArgumentException("La cantidad a reponer no es válida.");
@@ -189,6 +299,11 @@ public class Medicamento {
         cantidadDisponible += cantidad;
     }
 
+    /**
+     * Serializa el medicamento con el formato TXT vigente.
+     *
+     * @return registro separado por punto y coma
+     */
     public String aLinea() {
         return String.join(";", nombre, codigo, categoria, presentacion,
                 laboratorio, String.valueOf(cantidadDisponible),
@@ -196,6 +311,13 @@ public class Medicamento {
                 String.valueOf(stockMinimo), marca);
     }
 
+    /**
+     * Reconstruye y valida un medicamento desde una línea TXT compatible.
+     *
+     * @param linea registro separado por punto y coma
+     * @return medicamento reconstruido
+     * @throws IllegalArgumentException si el formato o sus datos son inválidos
+     */
     public static Medicamento desdeLinea(String linea) {
         String[] datos = linea.split(";", -1);
         if (datos.length != 7 && datos.length != 9 && datos.length != 10) {

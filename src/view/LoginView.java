@@ -9,7 +9,10 @@ import java.awt.image.BufferedImage;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 
-/** Presentación del login según la guía visual de Salud Vida. */
+/**
+ * Vista Swing de inicio de sesión y recuperación; presenta los datos y eventos
+ * que procesa {@code LoginController}, sin acceder a persistencia.
+ */
 public class LoginView extends JFrame {
     private static final Color AZUL_OSCURO = new Color(0x1E293B);
     private static final Color AZUL = new Color(0x2563EB);
@@ -221,6 +224,7 @@ public class LoginView extends JFrame {
         return new DialogoRecuperacion(this, configuracion, usuario);
     }
 
+    /** Tono visual de los mensajes y confirmaciones de la vista. */
     public enum TonoDialogo { INFORMACION, ADVERTENCIA, DESTRUCTIVO }
 
     public static void mostrarAlertaError(Component padre, String titulo, String mensaje) {
@@ -313,6 +317,7 @@ public class LoginView extends JFrame {
     }
 
     /** Un mismo diálogo presenta las dos preguntas y, tras verificarlas, la nueva clave. */
+    /** Diálogo de preguntas y restablecimiento; entrega los datos al controlador. */
     public static class DialogoRecuperacion extends JDialog {
         private final boolean configuracion;
         private final JPasswordField campoColor = new JPasswordField(22);
@@ -463,6 +468,7 @@ public class LoginView extends JFrame {
     }
 
     /** Isotipo de cruz y hoja recreado en Java2D para que no se pixele al escalar. */
+    /** Icono vectorial de marca utilizado en la pantalla de acceso. */
     public static class MarcaIcon implements Icon {
         private final int tamano;
         public MarcaIcon(int tamano) { this.tamano = tamano; }
@@ -502,6 +508,7 @@ public class LoginView extends JFrame {
         casilla.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
+    /** Icono de la casilla de mostrar contraseña. */
     private static class CasillaIcon implements Icon {
         public int getIconWidth() { return 20; }
         public int getIconHeight() { return 20; }
@@ -529,6 +536,7 @@ public class LoginView extends JFrame {
     }
 
     /** Botón redondeado sin línea interior; conserva estados de hover, presión y espera. */
+    /** Botón de acceso con tratamiento visual propio de esta vista. */
     private static class BotonRedondeado extends JButton {
         BotonRedondeado(String texto) {
             super(texto);
@@ -549,6 +557,7 @@ public class LoginView extends JFrame {
         }
     }
 
+    /** Borde decorativo reutilizado por los campos del formulario. */
     private static class CampoBorde extends AbstractBorder {
         private final Color color;
         CampoBorde(Color color) { this.color = color; }
@@ -563,6 +572,7 @@ public class LoginView extends JFrame {
         }
     }
 
+    /** Icono vectorial del botón de acceso. */
     private static class AccesoIcon implements Icon {
         private final boolean clave;
         AccesoIcon(boolean clave) { this.clave = clave; }

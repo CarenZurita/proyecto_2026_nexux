@@ -20,7 +20,10 @@ import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.text.JTextComponent;
 
-/** Paleta y componentes visuales compartidos por las pantallas de Salud Vida. */
+/**
+ * Recursos de presentación compartidos por las vistas Swing; centraliza estilos
+ * sin participar en controladores, reglas de negocio o persistencia.
+ */
 public final class EstiloSistema {
     public static final Color AZUL = new Color(0x2563EB);
     public static final Color AZUL_SUAVE = new Color(0xCDE5FA);

@@ -7,10 +7,13 @@ import java.awt.geom.RoundRectangle2D;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 import javax.swing.*;
-import model.GestorUsuarios;
+import controller.SeguridadCuentaController;
 import model.Usuario;
 
-/** Cambio de credenciales con contraseña actual y guardado fuera del hilo gráfico. */
+/**
+ * Diálogo de seguridad: captura credenciales y delega el guardado al controlador
+ * mediante un trabajador de Swing, fuera del hilo gráfico.
+ */
 public class SeguridadCuentaDialog extends JDialog {
     private final JPasswordField actual = new CampoClave();
     private final JPasswordField segunda = new CampoClave();
@@ -19,14 +22,18 @@ public class SeguridadCuentaDialog extends JDialog {
     private final JButton cancelar = boton("Cancelar", new Color(0xE2E8F0), new Color(0x1E293B));
     private final JTextArea error = new JTextArea(2, 30);
     private final Usuario sesion;
+    private final SeguridadCuentaController seguridadCuentaController;
     private final boolean preguntas;
     private final Runnable alGuardar;
     private boolean guardando;
 
-    public SeguridadCuentaDialog(Window padre, Usuario sesion, boolean preguntas, Runnable alGuardar) {
+    public SeguridadCuentaDialog(Window padre, Usuario sesion,
+            SeguridadCuentaController seguridadCuentaController, boolean preguntas,
+            Runnable alGuardar) {
         super(padre, preguntas ? "Actualizar preguntas" : "Cambiar contraseña",
                 ModalityType.APPLICATION_MODAL);
         this.sesion = sesion;
+        this.seguridadCuentaController = seguridadCuentaController;
         this.preguntas = preguntas;
         this.alGuardar = alGuardar;
         setIconImage(LoginView.crearIconoVentana());
@@ -77,13 +84,18 @@ public class SeguridadCuentaDialog extends JDialog {
             return;
         }
         error.setText(""); setGuardando(true);
+        // El servicio accede al archivo y deriva claves; no debe bloquear el EDT.
         new SwingWorker<Void, Void>() {
             @Override protected Void doInBackground() throws Exception {
                 try {
-                    if (preguntas) GestorUsuarios.actualizarMisPreguntas(sesion, a, s, t);
-                    else GestorUsuarios.cambiarMiClave(sesion, a, s, t);
+                    if (preguntas) {
+                        seguridadCuentaController.actualizarMisPreguntas(sesion, a, s, t);
+                    } else {
+                        seguridadCuentaController.cambiarMiClave(sesion, a, s, t);
+                    }
                     return null;
                 } finally {
+                    // Se borran las copias temporales incluso cuando el servicio falla.
                     Arrays.fill(a, '\0'); Arrays.fill(s, '\0'); Arrays.fill(t, '\0');
                 }
             }
@@ -147,6 +159,7 @@ public class SeguridadCuentaDialog extends JDialog {
         g.gridy++; g.insets = new Insets(arriba, 0, abajo, 0); panel.add(componente, g);
     }
 
+    /** Campo de contraseña con borde y pintura especializados. */
     private static class CampoClave extends JPasswordField {
         CampoClave() {
             super(24); setOpaque(false); setBackground(Color.WHITE);

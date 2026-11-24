@@ -4,11 +4,14 @@ import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 
-/** Componentes locales: no cambian los estilos de otras pantallas ni los logos. */
+/**
+ * Componentes de presentación reutilizables por las vistas Swing; no contienen
+ * lógica de negocio ni acceden a servicios o persistencia.
+ */
 public final class ComponentesRedondeados {
     private ComponentesRedondeados() { }
 
-    /** Los mismos dibujos de Inicio, escalados para tarjetas y navegación. */
+    /** Iconos vectoriales compartidos por tarjetas y navegación. */
     public static class IconoModulo implements Icon {
         private final String nombre;
         private final int tamano;
@@ -31,6 +34,7 @@ public final class ComponentesRedondeados {
                 case "ventas" -> new Color(37, 99, 235);
                 case "usuarios" -> new Color(139, 92, 246);
                 case "reportes" -> new Color(245, 158, 11);
+                case "vencimientos" -> new Color(245, 158, 11);
                 case "inicio", "configuracion", "configuración" ->
                     botonActivo ? Color.WHITE : new Color(30, 41, 59);
                 default -> Color.WHITE;
@@ -68,7 +72,7 @@ public final class ComponentesRedondeados {
                     d.drawArc(-46, 5, 27, 27, 0, 180);
                     d.drawArc(19, 5, 27, 27, 0, 180);
                 }
-                case "reportes" -> {
+                case "reportes", "vencimientos" -> {
                     d.fillRoundRect(-32, 1, 15, 29, 4, 4);
                     d.fillRoundRect(-7, -17, 15, 47, 4, 4);
                     d.fillRoundRect(18, -31, 15, 61, 4, 4);
@@ -112,6 +116,7 @@ public final class ComponentesRedondeados {
         return copia;
     }
 
+    /** Botón reutilizable con fondo y esquinas redondeadas. */
     public static class Boton extends JButton {
         private int arco = 22;
 
@@ -143,6 +148,7 @@ public final class ComponentesRedondeados {
         }
     }
 
+    /** Campo de texto con borde y foco coherentes con el tema visual. */
     public static class Campo extends JTextField {
         public Campo() { this(0); }
         public Campo(int columnas) {
@@ -167,6 +173,7 @@ public final class ComponentesRedondeados {
         }
     }
 
+    /** Panel reutilizable con esquinas redondeadas y borde configurable. */
     public static class Panel extends JPanel {
         private final int arco;
         private final Color borde;

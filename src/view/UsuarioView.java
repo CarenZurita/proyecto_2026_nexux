@@ -5,9 +5,12 @@ import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.*;
 import javax.swing.table.*;
-import model.GestorUsuarios.FichaUsuario;
+import model.FichaUsuario;
 
-/** Tabla de cuentas integrada en el panel del administrador. */
+/**
+ * Vista MVC de administración de usuarios: muestra fichas públicas y emite
+ * acciones de alta, edición y cambio de estado hacia su controlador.
+ */
 public class UsuarioView extends JPanel {
     static final Color AZUL = new Color(0x2563EB);
     static final Color TEXTO = new Color(0x1E293B);
@@ -141,6 +144,7 @@ public class UsuarioView extends JPanel {
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return b;
     }
+    /** Renderizador tipográfico de las celdas de la tabla. */
     private static class Texto extends DefaultTableCellRenderer {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
             super.getTableCellRendererComponent(t, v, s, f, r, c);
@@ -151,6 +155,7 @@ public class UsuarioView extends JPanel {
             return this;
         }
     }
+    /** Renderizador de los encabezados de columna. */
     private static class Cabecera extends Texto {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
             super.getTableCellRendererComponent(t, v, false, false, r, c);
@@ -160,6 +165,7 @@ public class UsuarioView extends JPanel {
             return this;
         }
     }
+    /** Indicador visual del estado activo o inactivo de una cuenta. */
     private static class Estado extends JPanel implements TableCellRenderer {
         private final JLabel texto = new JLabel() {
             @Override protected void paintComponent(Graphics g) {
@@ -197,11 +203,13 @@ public class UsuarioView extends JPanel {
         }
         return p;
     }
+    /** Presentación de las acciones disponibles para cada fila. */
     private static class Acciones implements TableCellRenderer {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
             return acciones(((FichaUsuario)v).activo());
         }
     }
+    /** Convierte la interacción con botones de fila en eventos de controlador. */
     private class EditorAcciones extends AbstractCellEditor implements TableCellEditor {
         private FichaUsuario cuenta;
         @Override public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int r, int c) {

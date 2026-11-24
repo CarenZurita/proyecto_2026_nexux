@@ -35,6 +35,10 @@ public class VencimientoView extends JPanel {
     private final JTable tabla = new JTable(modelo);
 
     public VencimientoView() {
+        this(true);
+    }
+
+    public VencimientoView(boolean mostrarTituloSeccion) {
         super(new BorderLayout(0, 18));
         setOpaque(false);
         setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
@@ -54,8 +58,12 @@ public class VencimientoView extends JPanel {
         actualizar.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
         actualizar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         controles.add(actualizar, BorderLayout.EAST);
-        cabecera.add(EstiloSistema.subtituloSeccion("Vencimientos"), BorderLayout.NORTH);
-        cabecera.add(controles, BorderLayout.SOUTH);
+        if (mostrarTituloSeccion) {
+            cabecera.add(EstiloSistema.subtituloSeccion("Vencimientos"), BorderLayout.NORTH);
+            cabecera.add(controles, BorderLayout.SOUTH);
+        } else {
+            cabecera.add(controles, BorderLayout.CENTER);
+        }
         add(cabecera, BorderLayout.NORTH);
 
         EstiloSistema.aplicarTabla(tabla);

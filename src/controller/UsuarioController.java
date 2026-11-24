@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import javax.swing.*;
-import model.GestorUsuarios.FichaUsuario;
+import model.FichaUsuario;
 import model.Rol;
 import model.Usuario;
 import service.UsuarioService;
@@ -12,14 +12,25 @@ import view.LoginView;
 import view.UsuarioFormDialog;
 import view.UsuarioView;
 
+/**
+ * Controlador MVC de Usuarios: maneja selección, formularios y acciones de
+ * la vista, manteniendo persistencia y reglas en los servicios.
+ */
 public class UsuarioController {
     private final Usuario sesion;
     private final UsuarioView vista;
     private final UsuarioService servicio;
     private boolean ocupado;
 
-    public UsuarioController(Usuario sesion, UsuarioView vista) {
-        this.sesion = sesion; this.vista = vista; this.servicio = new UsuarioService();
+    /**
+     * Conecta la vista con la sesión y el servicio de Usuarios.
+     *
+     * @param sesion cuenta autenticada que administra usuarios
+     * @param vista tabla y acciones de usuarios
+     * @param servicio operaciones de aplicación para usuarios
+     */
+    public UsuarioController(Usuario sesion, UsuarioView vista, UsuarioService servicio) {
+        this.sesion = sesion; this.vista = vista; this.servicio = servicio;
         vista.alNuevo(() -> formulario(null));
         vista.alEditar(this::formulario);
         vista.alCambiarEstado(this::cambiarEstado);
@@ -27,6 +38,9 @@ public class UsuarioController {
     private boolean sesionActiva() {
         return sesion != null && sesion.esAdministrador() && sesion.estaActivo() && sesion.estaEnSesion();
     }
+    /**
+     * Solicita las fichas al servicio y actualiza la tabla en el hilo de Swing.
+     */
     public void actualizar() {
         if (ocupado) return;
         if (!sesionActiva()) { vista.mostrarError("Se requiere una sesión de administrador."); return; }
@@ -57,6 +71,7 @@ public class UsuarioController {
         new SwingWorker<Void, Void>() {
             @Override protected Void doInBackground() throws Exception {
                 try { servicio.guardar(sesion, id, nombre, usuario, rol, clave, confirmacion); return null; }
+                // Las copias de contraseña obtenidas de la vista se limpian fuera del EDT.
                 finally { Arrays.fill(clave, '\0'); Arrays.fill(confirmacion, '\0'); }
             }
             @Override protected void done() {

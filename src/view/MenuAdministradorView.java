@@ -10,11 +10,21 @@ import java.awt.event.WindowEvent;
 
 import model.Rol;
 import model.Usuario;
+import service.UsuarioService;
+import controller.MedicamentoController;
+import controller.SeguridadCuentaController;
 
+/**
+ * Ventana principal del administrador; organiza vistas por módulo y recibe
+ * las dependencias de controladores y servicios desde el punto de composición.
+ */
 public class MenuAdministradorView extends JFrame {
 
     private final Usuario sesion;
     private final Runnable alCerrarSesion;
+    private final UsuarioService usuarioService;
+    private final SeguridadCuentaController seguridadCuentaController;
+    private final MedicamentoController medicamentoController;
 
     private CardLayout cardLayout;
     private JPanel panelContenido;
@@ -33,7 +43,9 @@ public class MenuAdministradorView extends JFrame {
     private final Color FONDO = new Color(241, 245, 249);
     private final Color GRIS = new Color(100, 116, 139);
 
-    public MenuAdministradorView(Usuario sesion, Runnable alCerrarSesion) {
+    public MenuAdministradorView(Usuario sesion, Runnable alCerrarSesion,
+            UsuarioService usuarioService, SeguridadCuentaController seguridadCuentaController,
+            MedicamentoController medicamentoController) {
 
         if (sesion == null || !sesion.estaActivo()
                 || !sesion.estaEnSesion()
@@ -44,6 +56,9 @@ public class MenuAdministradorView extends JFrame {
 
         this.sesion = sesion;
         this.alCerrarSesion = alCerrarSesion;
+        this.usuarioService = usuarioService;
+        this.seguridadCuentaController = seguridadCuentaController;
+        this.medicamentoController = medicamentoController;
 
         setTitle("Salud Vida - Panel Administrador");
         setIconImage(LoginView.crearIconoVentana());
@@ -201,18 +216,19 @@ public class MenuAdministradorView extends JFrame {
     // CREAR PANTALLAS
     private void crearPantalla(String nombre) {
         if (nombre.equals("Configuracion")) {
-            panelContenido.add(new ConfiguracionView(sesion), nombre);
+            panelContenido.add(new ConfiguracionView(sesion, seguridadCuentaController), nombre);
             return;
         }
         if (nombre.equals("Usuarios")) {
             UsuarioView vistaUsuarios = new UsuarioView();
-            controladorUsuarios = new controller.UsuarioController(sesion, vistaUsuarios);
+            controladorUsuarios = new controller.UsuarioController(
+                    sesion, vistaUsuarios, usuarioService);
             panelContenido.add(vistaUsuarios, nombre);
             return;
         }
 
         if (nombre.equals("Medicamentos")) {
-            vistaMedicamentos = new MedicamentoView(sesion);
+            vistaMedicamentos = new MedicamentoView(sesion, medicamentoController);
             panelContenido.add(vistaMedicamentos, nombre);
             return;
         }

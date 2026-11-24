@@ -5,28 +5,71 @@ import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import javax.swing.*;
-import model.GestorUsuarios;
+import model.PermisoRecuperacion;
 import model.Rol;
 import model.Usuario;
+import service.AutenticacionService;
+import service.RecuperacionService;
+import service.UsuarioService;
 import view.LoginView;
 import view.LoginView.DialogoRecuperacion;
 import view.MenuAdministradorView;
 import view.MenuEncargadoView;
 
+/**
+ * Controlador de autenticación: conecta los eventos de LoginView con los
+ * servicios y abre la vista principal del rol autenticado.
+ */
 public class LoginController {
     private final LoginView vista;
+    private final AutenticacionService autenticacionService;
+    private final RecuperacionService recuperacionService;
+    private final UsuarioService usuarioService;
+    private final SeguridadCuentaController seguridadCuentaController;
+    private final MedicamentoController medicamentoController;
     private int intentosFallidos;
     private boolean procesando;
 
-    public LoginController(LoginView vista) {
+    /**
+     * Conecta la vista de acceso con los servicios inyectados desde {@code Main}.
+     *
+     * @param vista interfaz de login
+     * @param autenticacionService servicio de autenticación
+     * @param recuperacionService servicio de recuperación
+     * @param usuarioService servicio de gestión de usuarios
+     * @param seguridadCuentaController controlador de seguridad de cuenta
+     * @param medicamentoController controlador compartido del inventario
+     */
+    public LoginController(LoginView vista, AutenticacionService autenticacionService,
+            RecuperacionService recuperacionService, UsuarioService usuarioService,
+            SeguridadCuentaController seguridadCuentaController,
+            MedicamentoController medicamentoController) {
         this.vista = vista;
+        this.autenticacionService = autenticacionService;
+        this.recuperacionService = recuperacionService;
+        this.usuarioService = usuarioService;
+        this.seguridadCuentaController = seguridadCuentaController;
+        this.medicamentoController = medicamentoController;
         vista.alIngresar(e -> ingresar());
         vista.alRecuperar(e -> recuperar());
     }
 
-    public static void mostrarLogin() {
+    /**
+     * Crea y muestra el login conservando las dependencias de la composición principal.
+     *
+     * @param autenticacionService servicio de autenticación
+     * @param recuperacionService servicio de recuperación
+     * @param usuarioService servicio de gestión de usuarios
+     * @param seguridadCuentaController controlador de seguridad
+     * @param medicamentoController controlador de medicamentos
+     */
+    public static void mostrarLogin(AutenticacionService autenticacionService,
+            RecuperacionService recuperacionService, UsuarioService usuarioService,
+            SeguridadCuentaController seguridadCuentaController,
+            MedicamentoController medicamentoController) {
         LoginView vista = new LoginView();
-        new LoginController(vista);
+        new LoginController(vista, autenticacionService, recuperacionService, usuarioService,
+                seguridadCuentaController, medicamentoController);
         vista.setVisible(true);
     }
 
@@ -46,9 +89,10 @@ public class LoginController {
             @Override
             protected Usuario doInBackground() throws Exception {
                 try {
-                    GestorUsuarios.inicializarAdministrador();
-                    return GestorUsuarios.iniciarSesion(nombre, clave);
+                    autenticacionService.inicializarAdministrador();
+                    return autenticacionService.iniciarSesion(nombre, clave);
                 } finally {
+                    // El trabajo criptográfico y de archivo va fuera del EDT; se borra la clave al acabar.
                     Arrays.fill(clave, '\0');
                 }
             }
@@ -90,7 +134,7 @@ public class LoginController {
             char[] color = dialogo.getColor(), comida = dialogo.getComida();
             ejecutar(dialogo, () -> {
                 try {
-                    GestorUsuarios.configurarRecuperacion(sesion, color, comida);
+                    recuperacionService.configurarRecuperacion(sesion, color, comida);
                     return true;
                 } finally { Arrays.fill(color, '\0'); Arrays.fill(comida, '\0'); }
             }, resultado -> {
@@ -119,12 +163,12 @@ public class LoginController {
         }
         vista.limpiarClave();
         DialogoRecuperacion dialogo = vista.crearDialogoRecuperacion(false, nombre);
-        GestorUsuarios.Recuperacion[] permiso = {null};
+        PermisoRecuperacion[] permiso = {null};
         dialogo.alVerificar(e -> {
             if (dialogo.estaProcesando()) return;
             char[] color = dialogo.getColor(), comida = dialogo.getComida();
             ejecutar(dialogo, () -> {
-                try { return GestorUsuarios.verificarRecuperacion(nombre, color, comida); }
+                try { return recuperacionService.verificarRecuperacion(nombre, color, comida); }
                 finally { Arrays.fill(color, '\0'); Arrays.fill(comida, '\0'); }
             }, verificado -> {
                 if (verificado == null) {
@@ -141,7 +185,7 @@ public class LoginController {
             char[] nueva = dialogo.getNuevaClave(), confirmacion = dialogo.getConfirmacion();
             ejecutar(dialogo, () -> {
                 try {
-                    GestorUsuarios.restablecerContrasena(permiso[0], nueva, confirmacion);
+                    recuperacionService.restablecerContrasena(permiso[0], nueva, confirmacion);
                     return true;
                 } finally { Arrays.fill(nueva, '\0'); Arrays.fill(confirmacion, '\0'); }
             }, terminado -> {
@@ -186,15 +230,22 @@ public class LoginController {
         return "No se pudo completar la operación. Revisa los datos del proyecto.";
     }
 
+    /** Operación bloqueante que se ejecuta en segundo plano desde el diálogo. */
     @FunctionalInterface
     private interface Tarea<T> { T realizar() throws Exception; }
 
     private void abrirMenu(Usuario sesion) {
         JFrame menu;
         if (Rol.ADMINISTRADOR.equals(sesion.getRol())) {
-            menu = new MenuAdministradorView(sesion, LoginController::mostrarLogin);
+            menu = new MenuAdministradorView(sesion,
+                    () -> mostrarLogin(autenticacionService, recuperacionService,
+                            usuarioService, seguridadCuentaController, medicamentoController),
+                    usuarioService, seguridadCuentaController, medicamentoController);
         } else if (Rol.ENCARGADO.equals(sesion.getRol())) {
-            menu = new MenuEncargadoView(sesion, LoginController::mostrarLogin);
+            menu = new MenuEncargadoView(sesion,
+                    () -> mostrarLogin(autenticacionService, recuperacionService,
+                            usuarioService, seguridadCuentaController, medicamentoController),
+                    seguridadCuentaController, medicamentoController);
         } else {
             sesion.cerrarSesion();
             vista.mostrarMensaje("La cuenta no tiene un rol permitido.");

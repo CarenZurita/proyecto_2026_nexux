@@ -22,8 +22,12 @@ import javax.swing.SwingConstants;
 import javax.swing.Icon;
 import javax.swing.SwingUtilities;
 
-/** Diálogo modal reutilizable para avisos, confirmaciones, errores y éxitos. */
+/**
+ * Componente de presentación reutilizable para avisos y confirmaciones;
+ * las vistas lo usan para comunicar resultados sin acoplarse al dominio.
+ */
 public final class CustomDialog {
+    /** Variantes visuales disponibles para los diálogos. */
     public enum TipoModal {
         AVISO(360, false, new Color(0xE0F2FE), new Color(0x0284C7),
                 new Color(0x2563EB), "i"),
@@ -63,10 +67,13 @@ public final class CustomDialog {
 
     private CustomDialog() { }
 
-    /** Devuelve true solo cuando el usuario pulsa Aceptar en una confirmación. */
+    /** Devuelve true solo cuando el usuario confirma la acción. */
     public static boolean mostrar(Component padre, String titulo, String mensaje, TipoModal tipo) {
         if (tipo == null) throw new IllegalArgumentException("El tipo de modal es obligatorio.");
-        if (tipo.confirmacion) return mostrarConfirmacion(padre, titulo, mensaje, tipo);
+        if (tipo.confirmacion) {
+            return mostrarConfirmacion(
+                    padre, titulo, mensaje, tipo, textoAccionPredeterminado(titulo));
+        }
         mostrarAviso(padre, titulo, mensaje, tipo);
         return false;
     }
@@ -81,7 +88,7 @@ public final class CustomDialog {
 
     private static void mostrarAviso(Component padre, String titulo, String mensaje, TipoModal tipo) {
         JDialog dialog = crearDialogo(padre, titulo);
-        JPanel contenido = crearContenido(titulo, mensaje, tipo);
+        JPanel contenido = crearContenido(dialog, titulo, mensaje, tipo);
         JButton aceptar = boton("Aceptar", tipo.colorPrimario, Color.WHITE);
         aceptar.setPreferredSize(new Dimension(240, 46));
         aceptar.addActionListener(evento -> dialog.dispose());
@@ -94,15 +101,14 @@ public final class CustomDialog {
     }
 
     private static boolean mostrarConfirmacion(Component padre, String titulo,
-                                               String mensaje, TipoModal tipo) {
+                                               String mensaje, TipoModal tipo,
+                                               String textoAccion) {
         boolean[] confirmado = {false};
         JDialog dialog = crearDialogo(padre, titulo);
-        JPanel contenido = crearContenido(titulo, mensaje, tipo);
-        JButton cancelar = boton("Cancelar", new Color(0xF3F4F6), TEXTO);
-        cancelar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0xD1D5DB)),
-                BorderFactory.createEmptyBorder(9, 12, 9, 12)));
-        JButton aceptar = boton("Aceptar", tipo.colorPrimario, Color.WHITE);
+        JPanel contenido = crearContenido(dialog, titulo, mensaje, tipo);
+        JButton cancelar = boton("Cancelar", new Color(0xEEF6FD), new Color(0x173A63));
+        cancelar.setBorder(BorderFactory.createEmptyBorder(9, 12, 9, 12));
+        JButton aceptar = boton(textoAccion, tipo.colorPrimario, Color.WHITE);
         ActionListener cerrar = evento -> dialog.dispose();
         cancelar.addActionListener(cerrar);
         aceptar.addActionListener(evento -> {
@@ -124,19 +130,44 @@ public final class CustomDialog {
                 JDialog.ModalityType.APPLICATION_MODAL);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setResizable(false);
+        dialog.setUndecorated(true);
         return dialog;
     }
 
-    private static JPanel crearContenido(String titulo, String mensaje, TipoModal tipo) {
-        JPanel contenido = new JPanel(new java.awt.GridBagLayout());
-        contenido.setBackground(Color.WHITE);
-        contenido.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
+    private static JPanel crearContenido(JDialog dialog, String titulo, String mensaje,
+                                         TipoModal tipo) {
+        Color borde = tipo == TipoModal.ERROR
+                ? new Color(0xFCA5A5) : new Color(0xE5E7EB);
+        Color fondo = tipo == TipoModal.ERROR
+                ? new Color(0xFFF7F7) : Color.WHITE;
+        JPanel contenido = new ComponentesRedondeados.Panel(
+                new java.awt.GridBagLayout(), fondo, 18, borde);
+        contenido.setBorder(BorderFactory.createEmptyBorder(8, 24, 24, 24));
+
+        JButton cerrar = new JButton("×");
+        cerrar.setFont(new Font("SansSerif", Font.PLAIN, 25));
+        cerrar.setForeground(new Color(0x64748B));
+        cerrar.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 0));
+        cerrar.setContentAreaFilled(false);
+        cerrar.setFocusPainted(false);
+        cerrar.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        cerrar.addActionListener(evento -> dialog.dispose());
+        java.awt.GridBagConstraints cerrarConstraints = new java.awt.GridBagConstraints();
+        cerrarConstraints.gridx = 0;
+        cerrarConstraints.gridy = 0;
+        cerrarConstraints.weightx = 1;
+        cerrarConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        cerrarConstraints.anchor = java.awt.GridBagConstraints.EAST;
+        cerrarConstraints.insets = new Insets(0, 0, 4, 0);
+        contenido.add(cerrar, cerrarConstraints);
 
         JLabel icono = new JLabel(new Icono(tipo));
         icono.setAlignmentX(Component.CENTER_ALIGNMENT);
         JLabel encabezado = new JLabel(escapar(titulo), SwingConstants.CENTER);
         encabezado.setFont(new Font("SansSerif", Font.BOLD, 22));
-        encabezado.setForeground(TEXTO);
+        encabezado.setForeground(tipo == TipoModal.ERROR
+                ? new Color(0xDC2626)
+                : tipo.confirmacion ? new Color(0x173A63) : TEXTO);
         encabezado.setAlignmentX(Component.CENTER_ALIGNMENT);
         encabezado.setHorizontalAlignment(SwingConstants.CENTER);
 
@@ -203,20 +234,55 @@ public final class CustomDialog {
                 .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
     }
 
+    private static String textoAccionPredeterminado(String titulo) {
+        String normalizado = titulo == null
+                ? "" : titulo.toLowerCase(java.util.Locale.ROOT);
+        if (normalizado.contains("elimin")) return "Eliminar";
+        if (normalizado.contains("desactiv")) return "Desactivar";
+        if (normalizado.contains("activ")) return "Activar";
+        if (normalizado.contains("sesión") || normalizado.contains("sesion")) {
+            return "Cerrar sesión";
+        }
+        if (normalizado.contains("vaciar")) return "Vaciar";
+        if (normalizado.contains("venta")) return "Confirmar";
+        return "Aceptar";
+    }
+
+    /** Icono vectorial correspondiente al tipo de diálogo. */
     private static final class Icono implements Icon {
         private final TipoModal tipo;
         Icono(TipoModal tipo) { this.tipo = tipo; }
-        @Override public int getIconWidth() { return 84; }
-        @Override public int getIconHeight() { return 84; }
+        private int tamano() { return tipo.confirmacion ? 100 : 84; }
+        @Override public int getIconWidth() { return tamano(); }
+        @Override public int getIconHeight() { return tamano(); }
         @Override public void paintIcon(Component componente, Graphics g, int x, int y) {
             Graphics2D p = (Graphics2D) g.create();
             p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            if (tipo.confirmacion) {
+                p.setColor(new Color(0xF97316));
+                p.fillOval(x, y, tamano(), tamano());
+                java.awt.geom.Path2D triangulo = new java.awt.geom.Path2D.Double();
+                triangulo.moveTo(x + 50, y + 22);
+                triangulo.lineTo(x + 78, y + 73);
+                triangulo.lineTo(x + 22, y + 73);
+                triangulo.closePath();
+                p.setColor(Color.WHITE);
+                p.setStroke(new java.awt.BasicStroke(5, java.awt.BasicStroke.CAP_ROUND,
+                        java.awt.BasicStroke.JOIN_ROUND));
+                p.draw(triangulo);
+                p.setStroke(new java.awt.BasicStroke(5, java.awt.BasicStroke.CAP_ROUND,
+                        java.awt.BasicStroke.JOIN_ROUND));
+                p.drawLine(x + 50, y + 39, x + 50, y + 55);
+                p.fillOval(x + 47, y + 62, 6, 6);
+                p.dispose();
+                return;
+            }
             p.setColor(tipo.fondoIcono);
-            p.fillOval(x, y, 84, 84);
+            p.fillOval(x, y, tamano(), tamano());
             p.setColor(tipo.colorIcono);
             p.setFont(new Font("SansSerif", Font.BOLD, tipo.glifo.equals("✓") ? 42 : 48));
             int ancho = p.getFontMetrics().stringWidth(tipo.glifo);
-            p.drawString(tipo.glifo, x + (84 - ancho) / 2, y + 58);
+            p.drawString(tipo.glifo, x + (tamano() - ancho) / 2, y + 58);
             p.dispose();
         }
     }

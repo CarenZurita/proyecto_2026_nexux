@@ -5,10 +5,13 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.Arrays;
 import javax.swing.*;
-import model.GestorUsuarios.FichaUsuario;
+import model.FichaUsuario;
 import model.Rol;
 
-/** Modal de alta/edición. Los errores mantienen el formulario abierto. */
+/**
+ * Vista modal de alta y edición: recopila datos y mantiene el formulario abierto
+ * cuando el controlador informa errores de validación.
+ */
 public class UsuarioFormDialog extends JDialog {
     private final JTextField nombre = new JTextField(24);
     private final JTextField usuario = new JTextField(24);

@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Rol del dominio con el conjunto de permisos que habilita cada acción.
+ */
 public final class Rol {
     public static final Rol ADMINISTRADOR =
             new Rol("ADMINISTRADOR", permisosAdministrador());

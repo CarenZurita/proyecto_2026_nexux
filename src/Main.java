@@ -1,45 +1,54 @@
 import java.io.IOException;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Scanner;
 import model.Administrador;
-import model.Medicamento;
 import model.Usuario;
 import model.Venta;
 import persistence.MedicamentoRepository;
+import persistence.UsuarioRepository;
 import persistence.VentaRepository;
-import util.Validaciones;
+import service.AutenticacionService;
+import service.GestionUsuariosService;
+import service.MedicamentoService;
+import service.RecuperacionService;
+import service.UsuarioService;
 
+/**
+ * Punto de entrada y composición de dependencias de la aplicación Salud Vida.
+ */
 public class Main {
     private static final MedicamentoRepository MEDICAMENTOS =
             new MedicamentoRepository();
 
+    private static final MedicamentoService MEDICAMENTO_SERVICE =
+            new MedicamentoService(MEDICAMENTOS);
+
+    private static final controller.MedicamentoController MEDICAMENTO_CONTROLLER =
+            new controller.MedicamentoController(MEDICAMENTO_SERVICE);
+
     private static final VentaRepository VENTAS =
             new VentaRepository();
 
+    /**
+     * Construye los repositorios y servicios compartidos e inicia Swing en el EDT.
+     *
+     * @param args argumentos de línea de comandos, actualmente no utilizados
+     */
     public static void main(String[] args) {
-        javax.swing.SwingUtilities.invokeLater(
-            controller.LoginController::mostrarLogin);
+        UsuarioRepository usuarios = new UsuarioRepository();
+        AutenticacionService autenticacion = new AutenticacionService(usuarios);
+        RecuperacionService recuperacion = new RecuperacionService(usuarios);
+        GestionUsuariosService gestionUsuarios = new GestionUsuariosService(usuarios);
+        UsuarioService usuariosService = new UsuarioService(gestionUsuarios);
+        controller.SeguridadCuentaController seguridadCuentaController =
+                new controller.SeguridadCuentaController(gestionUsuarios, recuperacion);
+        // Una sola instancia de cada dependencia mantiene consistente el ciclo de login/logout.
+        javax.swing.SwingUtilities.invokeLater(() ->
+                controller.LoginController.mostrarLogin(
+                        autenticacion, recuperacion, usuariosService,
+                        seguridadCuentaController, MEDICAMENTO_CONTROLLER));
     }
-    private static int leerOpcion(Scanner teclado, int maximo) {
-        while (true) {
-            System.out.print("Opción: ");
-            try {
-                int opcion = Integer.parseInt(teclado.nextLine().trim());
-                if (opcion >= 0 && opcion <= maximo) {
-                    return opcion;
-                }
-            } catch (NumberFormatException e) {
-                // Se vuelve a pedir una opción válida.
-            }
-            System.out.println("Opción inválida. Intente de nuevo.");
-        }
-    }
-
     private static boolean permitirSesion(Usuario usuario) {
         if (usuario == null || !usuario.estaActivo()) {
             System.out.println("Acceso denegado: debe iniciar sesión.");
@@ -55,101 +64,6 @@ public class Main {
             return false;
         }
         return true;
-    }
-
-    public static void registrarMedicamento(Scanner teclado, Usuario sesion) {
-        if (!permitirAdministrador(sesion)) {
-            return;
-        }
-
-        System.out.println("\n=================================");
-        System.out.println("     REGISTRAR MEDICAMENTO");
-        System.out.println("=================================");
-        System.out.print("Nombre: ");
-        String nombre = formatearTexto(teclado.nextLine());
-        System.out.print("Código: ");
-        String codigo = teclado.nextLine().trim().toUpperCase(Locale.ROOT);
-        String categoria = seleccionarCategoria(teclado);
-        String presentacion = seleccionarPresentacion(teclado);
-        String laboratorio = seleccionarLaboratorio(teclado);
-        String marca = leerTextoNoVacio(teclado, "Marca: ");
-        int cantidadDisponible = leerCantidad(teclado, "Cantidad disponible: ", false);
-        String fechaVencimiento = leerFechaValida(teclado);
-        double precio = leerPrecio(teclado, "Precio: ");
-        int stockMinimo = leerCantidad(teclado, "Stock mínimo: ", false);
-
-        Medicamento medicamento = new Medicamento(nombre, codigo, categoria,
-                presentacion, laboratorio, marca, cantidadDisponible,
-                fechaVencimiento, precio, stockMinimo);
-        try {
-            ((Administrador) sesion).registrarMedicamento(medicamento, MEDICAMENTOS);
-            System.out.println("\n=================================");
-            System.out.println("MEDICAMENTO REGISTRADO");
-            System.out.println("=================================");
-            medicamento.mostrarDatos();
-        } catch (IOException | SecurityException e) {
-            System.out.println("No se pudo registrar el medicamento: " + e.getMessage());
-        }
-    }
-
-    public static void buscarMedicamento(Scanner teclado, Usuario sesion) {
-        if (!permitirSesion(sesion)) {
-            return;
-        }
-        System.out.println("\n=================================");
-        System.out.println("     BUSCAR MEDICAMENTO");
-        System.out.println("=================================");
-        System.out.print("Ingrese nombre, código, marca o precio exacto: ");
-        String busqueda = teclado.nextLine().trim();
-        if (busqueda.isEmpty()) {
-            System.out.println("Debe ingresar un texto para buscar.");
-            return;
-        }
-
-        try {
-            List<Medicamento> encontrados = sesion.buscarMedicamento(busqueda, MEDICAMENTOS);
-            if (encontrados.isEmpty()) {
-                System.out.println("No se encontraron coincidencias.");
-                return;
-            }
-            for (Medicamento medicamento : encontrados) {
-                System.out.println("\n---------------------------------");
-                System.out.println("Medicamento encontrado");
-                System.out.println("---------------------------------");
-                medicamento.mostrarDatos();
-            }
-            System.out.println("\n" + encontrados.size() + " medicamento(s) encontrado(s).");
-        } catch (IOException | SecurityException e) {
-            System.out.println("No se pudieron consultar los medicamentos: " + e.getMessage());
-        }
-    }
-
-    public static void consultarStock(Scanner teclado, Usuario sesion) {
-        if (!permitirSesion(sesion)) {
-            return;
-        }
-        System.out.println("\n===============================");
-        System.out.println("      CONSULTAR STOCK");
-        System.out.println("===============================");
-        System.out.print("Ingrese código del medicamento: ");
-        String codigo = teclado.nextLine().trim().toUpperCase(Locale.ROOT);
-
-        try {
-            Optional<Medicamento> resultado = sesion.consultarStock(codigo, MEDICAMENTOS);
-            if (resultado.isEmpty()) {
-                System.out.println("Medicamento no encontrado.");
-                return;
-            }
-            Medicamento medicamento = resultado.get();
-            System.out.println("\nMedicamento encontrado");
-            System.out.println("Nombre: " + medicamento.getNombre());
-            System.out.println("Código: " + medicamento.getCodigo());
-            System.out.println("Cantidad disponible: " + medicamento.getCantidadDisponible());
-            System.out.println(medicamento.getCantidadDisponible() == 0
-                    ? "Estado: SIN STOCK" : "Estado: DISPONIBLE");
-        } catch (IOException | SecurityException e) {
-            System.out.println("No se pudo consultar el stock: " + e.getMessage());
-        }
     }
 
     public static void registrarVenta(Scanner teclado, Usuario sesion) {
@@ -168,213 +82,6 @@ public class Main {
         } catch (IOException | SecurityException | IllegalArgumentException
                  | IllegalStateException e) {
             System.out.println("No se pudo registrar la venta: " + e.getMessage());
-        }
-    }
-
-    public static void actualizarMedicamento(Scanner teclado, Usuario sesion) {
-        if (!permitirAdministrador(sesion)) {
-            return;
-        }
-        System.out.println("\n=================================");
-        System.out.println("     ACTUALIZAR MEDICAMENTO");
-        System.out.println("=================================");
-        System.out.print("Ingrese código del medicamento: ");
-        String codigo = teclado.nextLine().trim().toUpperCase(Locale.ROOT);
-        if (codigo.isEmpty()) {
-            System.out.println("El código no puede estar vacío.");
-            return;
-        }
-
-        try {
-            Optional<Medicamento> resultado =
-                    ((Administrador) sesion).buscarMedicamentoPorCodigo(codigo, MEDICAMENTOS);
-            if (resultado.isEmpty()) {
-                System.out.println("No existe un medicamento con ese código.");
-                return;
-            }
-            Medicamento medicamento = resultado.get();
-            System.out.println("\nMedicamento encontrado.");
-            System.out.println("Nombre actual: " + medicamento.getNombre());
-            System.out.println("Categoría actual: " + medicamento.getCategoria());
-            System.out.println("Presentación actual: " + medicamento.getPresentacion());
-            System.out.println("Laboratorio actual: " + medicamento.getLaboratorio());
-            System.out.println("Marca actual: " + medicamento.getMarca());
-            System.out.println("Cantidad actual: " + medicamento.getCantidadDisponible());
-            System.out.println("Precio actual: " + medicamento.getPrecio());
-            System.out.println("Stock mínimo actual: " + medicamento.getStockMinimo());
-            System.out.println("Vencimiento actual: " + medicamento.getFechaVencimiento());
-
-            System.out.println("\nIngrese los nuevos datos.");
-            String nombre = leerTextoNoVacio(teclado, "Nuevo nombre: ");
-            String categoria = seleccionarCategoria(teclado);
-            String presentacion = seleccionarPresentacion(teclado);
-            String laboratorio = seleccionarLaboratorio(teclado);
-            String marca = leerTextoNoVacio(teclado, "Nueva marca: ");
-            int cantidad = leerCantidad(teclado, "Nueva cantidad disponible: ", false);
-            String vencimiento = leerFechaValida(teclado);
-            double precio = leerPrecio(teclado, "Nuevo precio: ");
-            int stockMinimo = leerCantidad(teclado, "Nuevo stock mínimo: ", false);
-            medicamento.actualizarInfo(nombre, categoria, presentacion,
-                    laboratorio, marca, cantidad, vencimiento, precio, stockMinimo);
-
-            if (((Administrador) sesion).actualizarMedicamento(medicamento, MEDICAMENTOS)) {
-                System.out.println("Medicamento actualizado correctamente.");
-            } else {
-                System.out.println("No se pudo encontrar el medicamento para actualizarlo.");
-            }
-        } catch (IOException | SecurityException e) {
-            System.out.println("No se pudo actualizar el medicamento: " + e.getMessage());
-        }
-    }
-
-    public static String seleccionarCategoria(Scanner teclado) {
-        String[] categorias = {
-                "Analgésico", "Antibiótico", "Antiinflamatorio", "Antialérgico",
-                "Antigripal", "Vitaminas y suplementos", "Antiácido / digestivo", "Otro"
-        };
-        while (true) {
-            System.out.println("\nSeleccione la categoría:");
-            for (int i = 0; i < categorias.length; i++) {
-                System.out.println((i + 1) + ". " + categorias[i]);
-            }
-            int opcion = leerOpcion(teclado, categorias.length);
-            if (opcion == 0) {
-                System.out.println("Seleccione una opción de la lista.");
-                continue;
-            }
-            String categoria = categorias[opcion - 1];
-            if (categoria.equals("Otro")) {
-                return leerTextoNoVacio(teclado, "Especifique la categoría: ");
-            }
-            return categoria;
-        }
-    }
-
-    public static String seleccionarPresentacion(Scanner teclado) {
-        String[] presentaciones = {
-                "Tabletas", "Cápsulas", "Jarabe", "Inyección", "Crema / pomada",
-                "Gotas", "Suspensión", "Supositorio", "Otro"
-        };
-        while (true) {
-            System.out.println("\nSeleccione la presentación:");
-            for (int i = 0; i < presentaciones.length; i++) {
-                System.out.println((i + 1) + ". " + presentaciones[i]);
-            }
-            int opcion = leerOpcion(teclado, presentaciones.length);
-            if (opcion == 0) {
-                System.out.println("Seleccione una opción de la lista.");
-                continue;
-            }
-            String presentacion = presentaciones[opcion - 1];
-            if (presentacion.equals("Otro")) {
-                return leerTextoNoVacio(teclado, "Especifique la presentación: ");
-            }
-            return presentacion;
-        }
-    }
-
-    public static String seleccionarLaboratorio(Scanner teclado) {
-        String[] laboratorios = {"INTI", "Bagó", "COFAR", "LAFAR", "VITA"};
-        while (true) {
-            System.out.println("\nSeleccione el laboratorio:");
-            for (int i = 0; i < laboratorios.length; i++) {
-                System.out.println((i + 1) + ". " + laboratorios[i]);
-            }
-            int opcion = leerOpcion(teclado, laboratorios.length);
-            if (opcion > 0) {
-                return laboratorios[opcion - 1];
-            }
-        }
-    }
-
-    public static String leerFechaValida(Scanner teclado) {
-        DateTimeFormatter formato = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        while (true) {
-            System.out.print("Fecha de vencimiento (AAAA-MM-DD): ");
-            String entrada = teclado.nextLine().trim();
-            try {
-                LocalDate fecha = LocalDate.parse(entrada, formato);
-                if (fecha.isBefore(LocalDate.now())) {
-                    System.out.println("La fecha ya venció. Ingrese una fecha futura.");
-                    continue;
-                }
-                return fecha.format(formato);
-            } catch (DateTimeParseException e) {
-                System.out.println("Fecha inválida. Use el formato AAAA-MM-DD (ej: 2026-12-31).");
-            }
-        }
-    }
-
-    public static void controlarVencimientos(Usuario sesion) {
-        if (!permitirSesion(sesion)) {
-            return;
-        }
-        System.out.println("\n=================================");
-        System.out.println("     CONTROL DE VENCIMIENTOS");
-        System.out.println("=================================");
-        try {
-            List<Medicamento> cercanos = sesion.revisarVencimientos(MEDICAMENTOS);
-            if (cercanos.isEmpty()) {
-                System.out.println("No existen medicamentos próximos a vencer o vencidos.");
-                return;
-            }
-            for (Medicamento medicamento : cercanos) {
-                System.out.println("\n---------------------------------");
-                System.out.println("Medicamento: " + medicamento.getNombre());
-                System.out.println("Código: " + medicamento.getCodigo());
-                System.out.println("Fecha de vencimiento: "
-                        + medicamento.getFechaVencimiento());
-                System.out.println("Estado: "
-                        + (medicamento.estaVencido() ? "VENCIDO" : "PRÓXIMO A VENCER"));
-            }
-        } catch (IOException | SecurityException | IllegalArgumentException e) {
-            System.out.println("No se pudieron revisar los vencimientos: " + e.getMessage());
-        }
-    }
-
-    public static void eliminarMedicamentoCaducado(Scanner teclado, Usuario sesion) {
-        if (!permitirAdministrador(sesion)) {
-            return;
-        }
-        System.out.println("\n=================================");
-        System.out.println(" ELIMINAR MEDICAMENTO CADUCADO");
-        System.out.println("=================================");
-        System.out.print("Ingrese código del medicamento: ");
-        String codigo = teclado.nextLine().trim().toUpperCase(Locale.ROOT);
-        if (codigo.isEmpty()) {
-            System.out.println("El código no puede estar vacío.");
-            return;
-        }
-
-        try {
-            Optional<Medicamento> resultado =
-                    ((Administrador) sesion).buscarMedicamentoPorCodigo(codigo, MEDICAMENTOS);
-            if (resultado.isEmpty()) {
-                System.out.println("Medicamento no encontrado.");
-                return;
-            }
-            Medicamento medicamento = resultado.get();
-            if (!medicamento.estaVencido()) {
-                System.out.println("\nEl medicamento todavía está vigente.");
-                System.out.println("No puede ser eliminado.");
-                return;
-            }
-            System.out.println("\nMedicamento caducado encontrado:");
-            System.out.println("Nombre: " + medicamento.getNombre());
-            System.out.println("Código: " + medicamento.getCodigo());
-            System.out.println("Fecha de vencimiento: " + medicamento.getFechaVencimiento());
-            System.out.print("¿Desea eliminarlo? (S/N): ");
-            if (!teclado.nextLine().trim().equalsIgnoreCase("S")) {
-                System.out.println("Eliminación cancelada.");
-                return;
-            }
-            if (((Administrador) sesion).eliminarMedicamentoCaducado(codigo, MEDICAMENTOS)) {
-                System.out.println("Medicamento eliminado correctamente.");
-            }
-        } catch (IOException | SecurityException | IllegalArgumentException e) {
-            System.out.println("No se pudo eliminar el medicamento: " + e.getMessage());
-        } catch (IllegalStateException e) {
-            System.out.println(e.getMessage());
         }
     }
 
@@ -402,21 +109,6 @@ public class Main {
         }
     }
 
-    public static String formatearTexto(String texto) {
-        return Validaciones.formatearTexto(texto);
-    }
-
-    private static String leerTextoNoVacio(Scanner teclado, String mensaje) {
-        while (true) {
-            System.out.print(mensaje);
-            String texto = formatearTexto(teclado.nextLine());
-            if (!texto.isEmpty()) {
-                return texto;
-            }
-            System.out.println("El texto no puede estar vacío.");
-        }
-    }
-
     private static int leerCantidad(Scanner teclado, String mensaje, boolean debeSerPositiva) {
         while (true) {
             System.out.print(mensaje);
@@ -434,18 +126,4 @@ public class Main {
         }
     }
 
-    private static double leerPrecio(Scanner teclado, String mensaje) {
-        while (true) {
-            System.out.print(mensaje);
-            try {
-                double precio = Double.parseDouble(teclado.nextLine().trim().replace(',', '.'));
-                if (Double.isFinite(precio) && precio >= 0) {
-                    return precio;
-                }
-            } catch (NumberFormatException e) {
-                // Se vuelve a pedir un precio válido.
-            }
-            System.out.println("El precio debe ser un número mayor o igual a cero.");
-        }
-    }
 }

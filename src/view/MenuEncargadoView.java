@@ -12,16 +12,25 @@ import java.util.Map;
 
 import model.Rol;
 import model.Usuario;
+import controller.MedicamentoController;
+import controller.SeguridadCuentaController;
 
+/**
+ * Ventana principal del encargado; organiza las vistas permitidas al rol
+ * y recibe sus controladores desde el punto de composición.
+ */
 public class MenuEncargadoView extends JFrame {
 
     private final Usuario sesion;
     private final Runnable alCerrarSesion;
+    private final SeguridadCuentaController seguridadCuentaController;
+    private final MedicamentoController medicamentoController;
 
     private final CardLayout cardLayout = new CardLayout();
     private final JPanel panelContenido = new JPanel(cardLayout);
 
     private MedicamentoView vistaMedicamentos;
+    private controller.VencimientoController controladorVencimientos;
 
     private final Map<String, JButton> botonesMenu =
             new LinkedHashMap<>();
@@ -38,7 +47,9 @@ public class MenuEncargadoView extends JFrame {
     private final Color GRIS = new Color(100, 116, 139);
 
     public MenuEncargadoView(
-            Usuario sesion, Runnable alCerrarSesion) {
+            Usuario sesion, Runnable alCerrarSesion,
+            SeguridadCuentaController seguridadCuentaController,
+            MedicamentoController medicamentoController) {
 
         // VALIDAR SESION DEL ENCARGADO
         if (sesion == null
@@ -52,6 +63,8 @@ public class MenuEncargadoView extends JFrame {
 
         this.sesion = sesion;
         this.alCerrarSesion = alCerrarSesion;
+        this.seguridadCuentaController = seguridadCuentaController;
+        this.medicamentoController = medicamentoController;
 
         setTitle("Salud Vida - Panel Encargado");
         setIconImage(LoginView.crearIconoVentana());
@@ -96,7 +109,7 @@ public class MenuEncargadoView extends JFrame {
 
         // BOTONES DEL MENU
         JPanel botones = new JPanel(
-                new GridLayout(3, 1, 0, 10));
+                new GridLayout(5, 1, 0, 10));
 
         botones.setOpaque(false);
         botones.setBorder(
@@ -109,6 +122,8 @@ public class MenuEncargadoView extends JFrame {
         agregarBoton(botones, "Inicio");
         agregarBoton(botones, "Medicamentos");
         agregarBoton(botones, "Ventas");
+        agregarBoton(botones, "Vencimientos");
+        agregarBoton(botones, "Configuracion");
 
         // MANTENER LOS BOTONES ARRIBA
         JPanel navegacion = new JPanel(new BorderLayout());
@@ -251,32 +266,26 @@ public class MenuEncargadoView extends JFrame {
 
         inicio.add(encabezado, BorderLayout.NORTH);
 
-        // TARJETAS IGUALES AL ADMINISTRADOR
+        // TARJETAS CON LA MISMA DISTRIBUCIÓN DEL INICIO DEL ADMINISTRADOR
         JPanel tarjetas = new JPanel(
-                new GridLayout(1, 2, 20, 20));
+                new GridLayout(2, 2, 20, 20));
 
         tarjetas.setOpaque(false);
-        tarjetas.setPreferredSize(new Dimension(0, 250));
+        tarjetas.setBorder(
+                BorderFactory.createEmptyBorder(35, 0, 0, 0));
 
         tarjetas.add(crearTarjeta("Medicamentos"));
         tarjetas.add(crearTarjeta("Ventas"));
+        tarjetas.add(crearTarjeta("Vencimientos"));
 
-        JPanel centro = new JPanel(new BorderLayout());
-        centro.setOpaque(false);
-
-        centro.setBorder(
-                BorderFactory.createEmptyBorder(35, 0, 0, 0));
-
-        centro.add(tarjetas, BorderLayout.NORTH);
-
-        inicio.add(centro, BorderLayout.CENTER);
+        inicio.add(tarjetas, BorderLayout.CENTER);
 
         panelContenido.add(inicio, "Inicio");
 
         // PANTALLA MEDICAMENTOS
         JPanel medicamentos = new JPanel(new BorderLayout());
 
-        vistaMedicamentos = new MedicamentoView(sesion);
+        vistaMedicamentos = new MedicamentoView(sesion, medicamentoController);
 
         medicamentos.add(
                 vistaMedicamentos, BorderLayout.CENTER);
@@ -296,6 +305,20 @@ public class MenuEncargadoView extends JFrame {
         ventas.add(vistaVentas, BorderLayout.CENTER);
 
         panelContenido.add(ventas, "Ventas");
+
+        JPanel vencimientos = new JPanel(new BorderLayout(0, 22));
+        vencimientos.setBackground(FONDO);
+        vencimientos.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
+        vencimientos.add(EstiloSistema.encabezado("vencimientos", "Vencimientos",
+                "Consulta los medicamentos próximos a vencer."),
+                BorderLayout.NORTH);
+        VencimientoView vistaVencimientos = new VencimientoView(false);
+        controladorVencimientos = new controller.VencimientoController(sesion, vistaVencimientos);
+        vencimientos.add(vistaVencimientos, BorderLayout.CENTER);
+        panelContenido.add(vencimientos, "Vencimientos");
+
+        panelContenido.add(
+                new ConfiguracionView(sesion, seguridadCuentaController), "Configuracion");
     }
 
     // CREAR TARJETAS CON EL ESTILO DEL ADMINISTRADOR
@@ -311,6 +334,10 @@ public class MenuEncargadoView extends JFrame {
 
             case "Ventas":
                 descripcion = "Registro y control de ventas";
+                break;
+
+            case "Vencimientos":
+                descripcion = "Control de fechas de vencimiento";
                 break;
 
             default:
@@ -435,6 +462,9 @@ public class MenuEncargadoView extends JFrame {
         // ACTUALIZAR INVENTARIO AL ENTRAR
         if (nombre.equals("Medicamentos")) {
             vistaMedicamentos.recargar();
+        }
+        if (nombre.equals("Vencimientos")) {
+            controladorVencimientos.actualizar();
         }
 
         pantallaActual = nombre;
