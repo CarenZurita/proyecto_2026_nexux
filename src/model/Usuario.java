@@ -16,8 +16,12 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import persistence.MedicamentoRepository;
 import persistence.VentaRepository;
+import service.MedicamentoService;
 
-/** Identidad y autenticación comunes a las cuentas de farmacia. */
+/**
+ * Entidad base del dominio de cuentas: conserva identidad, rol, estado de sesión,
+ * credenciales protegidas y las operaciones comunes de autorización.
+ */
 public abstract class Usuario {
     private static final int ITERACIONES = 210000;
     private static final int LONGITUD_SAL = 16;
@@ -48,6 +52,17 @@ public abstract class Usuario {
         this.contraseña = contraseñaProtegida;
     }
 
+    /**
+     * Crea una cuenta nueva y protege su contraseña antes de conservarla.
+     *
+     * @param usuario identificador de acceso de 3 a 20 caracteres permitidos
+     * @param nombre nombre visible de la cuenta
+     * @param rol rol de administrador o encargado
+     * @param clave contraseña de 8 a 128 caracteres
+     * @return instancia de la subclase que corresponde al rol
+     * @throws IllegalArgumentException si la identidad o la contraseña no cumple las reglas
+     * @throws GeneralSecurityException si el JDK no puede derivar la credencial protegida
+     */
     public static Usuario crear(String usuario, String nombre, Rol rol, char[] clave)
             throws GeneralSecurityException {
         validarIdentidad(usuario, nombre, rol, clave);
@@ -87,15 +102,32 @@ public abstract class Usuario {
         };
     }
 
+    /**
+     * Autentica la cuenta y abre su sesión solo si está activa y la clave coincide.
+     *
+     * @param clave contraseña proporcionada para la autenticación
+     * @return {@code true} si la cuenta activa inicia sesión
+     * @throws GeneralSecurityException si falla la verificación criptográfica
+     */
     public boolean iniciarSesion(char[] clave) throws GeneralSecurityException {
         sesionIniciada = activo && comprobarClave(clave);
         return sesionIniciada;
     }
 
+    /** Cierra la sesión activa de esta cuenta en memoria. */
     public void cerrarSesion() {
         sesionIniciada = false;
     }
 
+    /**
+     * Cambia la contraseña de una sesión validando primero la contraseña actual.
+     *
+     * @param actual contraseña vigente
+     * @param nueva contraseña nueva de 8 a 128 caracteres
+     * @throws SecurityException si no hay sesión o la contraseña vigente no coincide
+     * @throws IllegalArgumentException si la contraseña nueva no cumple la longitud permitida
+     * @throws GeneralSecurityException si falla la derivación criptográfica
+     */
     public void cambiarContraseña(char[] actual, char[] nueva)
             throws GeneralSecurityException {
         if (!sesionIniciada || !comprobarClave(actual)) {
@@ -111,16 +143,31 @@ public abstract class Usuario {
         }
     }
 
-    boolean comprobarClave(char[] clave) throws GeneralSecurityException {
+    /**
+     * Compara una contraseña con el hash protegido de la cuenta usando comparación constante.
+     *
+     * @param clave contraseña que se quiere comprobar
+     * @return {@code true} si coincide; {@code false} si es {@code null} o no coincide
+     * @throws GeneralSecurityException si falla la derivación criptográfica
+     */
+    public boolean comprobarClave(char[] clave) throws GeneralSecurityException {
         if (clave == null) {
             return false;
         }
         byte[] guardada = Base64.getDecoder().decode(contraseña);
         byte[] ingresada = proteger(clave, Base64.getDecoder().decode(sal));
+        // La comparación constante evita filtrar por el tiempo de comparación cuántos bytes coinciden.
         return MessageDigest.isEqual(guardada, ingresada);
     }
 
-    void cambiarClave(char[] nueva) throws GeneralSecurityException {
+    /**
+     * Reemplaza el hash y la sal por credenciales nuevas.
+     *
+     * @param nueva contraseña de 8 a 128 caracteres
+     * @throws IllegalArgumentException si la longitud no está permitida
+     * @throws GeneralSecurityException si falla la derivación criptográfica
+     */
+    public void cambiarClave(char[] nueva) throws GeneralSecurityException {
         validarClave(nueva);
         byte[] salNueva = new byte[LONGITUD_SAL];
         new SecureRandom().nextBytes(salNueva);
@@ -132,8 +179,16 @@ public abstract class Usuario {
         return !respuestaColor.isEmpty() && !respuestaComida.isEmpty();
     }
 
-    /** Solo GestorUsuarios puede configurar las respuestas después de autenticar. */
-    void configurarRecuperacion(char[] color, char[] comida) throws GeneralSecurityException {
+    /**
+     * Configura respuestas protegidas de recuperación para una cuenta administradora.
+     *
+     * @param color respuesta a la pregunta del color favorito
+     * @param comida respuesta a la pregunta de la comida favorita
+     * @throws SecurityException si la cuenta no es administradora
+     * @throws IllegalArgumentException si una respuesta está vacía o supera 128 caracteres
+     * @throws GeneralSecurityException si falla la protección de las respuestas
+     */
+    public void configurarRecuperacion(char[] color, char[] comida) throws GeneralSecurityException {
         if (!esAdministrador()) throw new SecurityException("Esta recuperación es para administradores.");
         char[] colorNormal = normalizarRespuesta(color);
         char[] comidaNormal = null;
@@ -150,12 +205,20 @@ public abstract class Usuario {
             respuestaColor = hash1; respuestaComida = hash2;
             limpiarIntentosRecuperacion();
         } finally {
+            // Las copias normalizadas ya no se necesitan después de derivar sus hashes.
             Arrays.fill(colorNormal, '\0');
             if (comidaNormal != null) Arrays.fill(comidaNormal, '\0');
         }
     }
 
-    static char[] normalizarRespuesta(char[] respuesta) {
+    /**
+     * Normaliza una respuesta para que la verificación no dependa de mayúsculas o espacios.
+     *
+     * @param respuesta respuesta ingresada
+     * @return copia normalizada que el llamador debe borrar cuando termine de usarla
+     * @throws IllegalArgumentException si está vacía o supera 128 caracteres
+     */
+    public static char[] normalizarRespuesta(char[] respuesta) {
         if (respuesta == null || respuesta.length > 128) {
             throw new IllegalArgumentException("Cada respuesta debe tener entre 1 y 128 caracteres.");
         }
@@ -165,7 +228,16 @@ public abstract class Usuario {
         return texto.toCharArray();
     }
 
-    boolean comprobarRespuestas(char[] color, char[] comida) throws GeneralSecurityException {
+    /**
+     * Comprueba las dos respuestas de recuperación sin comparar texto en claro.
+     *
+     * @param color respuesta de color
+     * @param comida respuesta de comida
+     * @return {@code true} solo si ambas respuestas coinciden
+     * @throws IllegalArgumentException si alguna respuesta no es válida
+     * @throws GeneralSecurityException si falla la derivación criptográfica
+     */
+    public boolean comprobarRespuestas(char[] color, char[] comida) throws GeneralSecurityException {
         if (!tieneRecuperacion()) return false;
         char[] colorNormal = normalizarRespuesta(color);
         char[] comidaNormal = null;
@@ -177,12 +249,13 @@ public abstract class Usuario {
                     proteger(comidaNormal, Base64.getDecoder().decode(salComida)));
             return colorCorrecto & comidaCorrecta;
         } finally {
+            // Se eliminan las copias temporales para reducir su permanencia en memoria.
             Arrays.fill(colorNormal, '\0');
             if (comidaNormal != null) Arrays.fill(comidaNormal, '\0');
         }
     }
 
-    boolean mismaCredencial(Usuario otro) {
+    public boolean mismaCredencial(Usuario otro) {
         return otro != null && usuario.equals(otro.usuario)
                 && sal.equals(otro.sal) && contraseña.equals(otro.contraseña);
     }
@@ -192,14 +265,14 @@ public abstract class Usuario {
                 + ";" + salComida + ";" + respuestaComida;
     }
 
-    long getRecuperacionBloqueadaHasta() { return recuperacionBloqueadaHasta; }
+    public long getRecuperacionBloqueadaHasta() { return recuperacionBloqueadaHasta; }
 
-    void limpiarIntentosRecuperacion() {
+    public void limpiarIntentosRecuperacion() {
         intentosRecuperacion = 0;
         recuperacionBloqueadaHasta = 0;
     }
 
-    boolean registrarFalloRecuperacion(long ahora) {
+    public boolean registrarFalloRecuperacion(long ahora) {
         recuperacionBloqueadaHasta = 0;
         intentosRecuperacion++;
         if (intentosRecuperacion >= 3) {
@@ -210,7 +283,7 @@ public abstract class Usuario {
         return false;
     }
 
-    void copiarRecuperacionDesde(Usuario cuenta) {
+    public void copiarRecuperacionDesde(Usuario cuenta) {
         salColor = cuenta.salColor; respuestaColor = cuenta.respuestaColor;
         salComida = cuenta.salComida; respuestaComida = cuenta.respuestaComida;
         intentosRecuperacion = cuenta.intentosRecuperacion;
@@ -219,27 +292,45 @@ public abstract class Usuario {
 
     private static byte[] proteger(char[] clave, byte[] sal)
             throws GeneralSecurityException {
+        // PBKDF2 eleva el costo de cada intento de fuerza bruta sobre un hash robado.
         PBEKeySpec datos = new PBEKeySpec(clave, sal, ITERACIONES, 256);
         try {
             return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
                     .generateSecret(datos).getEncoded();
         } finally {
+            // PBEKeySpec mantiene una copia interna de la contraseña.
             datos.clearPassword();
         }
     }
 
-    String aLinea() {
+    /**
+     * Serializa la cuenta en el formato TXT vigente, incluida la información de recuperación.
+     *
+     * @return registro delimitado por punto y coma
+     */
+    public String aLinea() {
         String base = usuario + ";" + nombre + ";" + rol.getNombre() + ";"
                 + activo + ";" + sal + ";" + contraseña;
-        if (!tieneRecuperacion()) return base + ";" + id;
-        return base + ";" + salColor + ";" + respuestaColor + ";" + salComida
-                + ";" + respuestaComida + ";" + intentosRecuperacion
-                + ";" + recuperacionBloqueadaHasta + ";" + id;
+        if (!tieneRecuperacion()) {
+            return id > 0 ? base + ";" + id : base;
+        }
+        String conRecuperacion = base + ";" + salColor + ";" + respuestaColor + ";"
+                + salComida + ";" + respuestaComida + ";" + intentosRecuperacion
+                + ";" + recuperacionBloqueadaHasta;
+        return id > 0 ? conRecuperacion + ";" + id : conRecuperacion;
     }
 
-    static Usuario desdeLinea(String linea) {
+    /**
+     * Reconstruye y valida una cuenta desde una línea del archivo TXT.
+     *
+     * @param linea registro serializado
+     * @return cuenta reconstruida con su subtipo y estado de recuperación
+     * @throws IllegalArgumentException si el registro, el hash, el rol o el ID no son válidos
+     */
+    public static Usuario desdeLinea(String linea) {
         String[] originales = linea.split(";", -1);
-        boolean conId = originales.length == 7 || originales.length == 13;
+        boolean conId = (originales.length == 7 || originales.length == 13)
+                && !originales[originales.length - 1].isBlank();
         String[] datos = conId ? Arrays.copyOf(originales, originales.length - 1) : originales;
         try {
             if ((datos.length != 6 && datos.length != 12) || !datos[0].matches("[a-z0-9._-]{3,20}")
@@ -270,33 +361,53 @@ public abstract class Usuario {
                 }
             }
             if (conId) {
-                cuenta.id = Integer.parseInt(originales[originales.length - 1]);
-                if (cuenta.id <= 0) throw new IllegalArgumentException("ID inválido");
+                int idLeido = Integer.parseInt(originales[originales.length - 1]);
+                if (idLeido < 0) {
+                    throw new IllegalArgumentException("ID inválido");
+                }
+                if (idLeido > 0) {
+                    cuenta.id = idLeido;
+                }
             }
             return cuenta;
         } catch (IllegalArgumentException e) {
-            if ("Cuenta inválida".equals(e.getMessage())) {
+            if ("Cuenta inválida".equals(e.getMessage()) || "ID inválido".equals(e.getMessage())) {
                 throw e;
             }
             throw new IllegalArgumentException("Cuenta inválida", e);
         }
     }
 
+    /**
+     * Busca medicamentos para una sesión autenticada.
+     *
+     * @param texto nombre, código, marca o precio exacto
+     * @param medicamentos repositorio del inventario
+     * @return coincidencias encontradas
+     * @throws SecurityException si la cuenta no tiene una sesión activa
+     * @throws IOException si ocurre un error de lectura
+     */
     public List<Medicamento> buscarMedicamento(String texto,
                                                 MedicamentoRepository medicamentos)
             throws IOException {
         validarSesionActiva();
-        if (texto == null || texto.isBlank()) {
-            throw new IllegalArgumentException("Debe ingresar un texto para buscar.");
-        }
-        return medicamentos.buscar(texto.trim());
+        return new MedicamentoService(medicamentos).buscar(this, texto);
     }
 
+    /**
+     * Consulta un medicamento por código para una sesión autenticada.
+     *
+     * @param codigo código que se busca
+     * @param medicamentos repositorio del inventario
+     * @return medicamento encontrado, o vacío si no existe
+     * @throws SecurityException si la cuenta no tiene una sesión activa
+     * @throws IOException si ocurre un error de lectura
+     */
     public Optional<Medicamento> consultarStock(String codigo,
                                                  MedicamentoRepository medicamentos)
             throws IOException {
         validarSesionActiva();
-        return medicamentos.buscarPorCodigo(codigo);
+        return new MedicamentoService(medicamentos).consultarStock(this, codigo);
     }
 
     public void registrarVenta(String codigo, int cantidad,
@@ -336,7 +447,7 @@ public abstract class Usuario {
 
     public int getId() { return id; }
 
-    void asignarId(int nuevoId) {
+    public void asignarId(int nuevoId) {
         if (nuevoId <= 0 || (id != 0 && id != nuevoId)) {
             throw new IllegalArgumentException("No se puede cambiar el ID de una cuenta.");
         }
@@ -344,7 +455,7 @@ public abstract class Usuario {
     }
 
     /** Conserva credenciales e ID y usa la subclase adecuada para el nuevo rol. */
-    Usuario conRol(Rol nuevoRol) {
+    public Usuario conRol(Rol nuevoRol) {
         Usuario copia = crearDesdeHash(nombre, usuario, Rol.porNombre(nuevoRol.getNombre()),
                 activo, sal, contraseña);
         copia.id = id;
@@ -352,7 +463,7 @@ public abstract class Usuario {
         return copia;
     }
 
-    void sincronizarDatos(Usuario cuenta) {
+    public void sincronizarDatos(Usuario cuenta) {
         nombre = cuenta.nombre;
         usuario = cuenta.usuario;
         sal = cuenta.sal;
@@ -393,18 +504,18 @@ public abstract class Usuario {
         return rol.esAdministrador();
     }
 
-    void setNombreCompleto(String nombre) {
+    public void setNombreCompleto(String nombre) {
         this.nombre = nombre;
     }
 
-    void setNombreUsuario(String usuario) {
+    public void setNombreUsuario(String usuario) {
         if (usuario == null || !usuario.matches("[a-z0-9._-]{3,20}")) {
             throw new IllegalArgumentException("Nombre de usuario inválido.");
         }
         this.usuario = usuario;
     }
 
-    void setActivo(boolean activo) {
+    public void setActivo(boolean activo) {
         this.activo = activo;
         if (!activo) {
             cerrarSesion();

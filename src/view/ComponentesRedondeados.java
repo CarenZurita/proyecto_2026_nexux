@@ -4,11 +4,14 @@ import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 
-/** Componentes locales: no cambian los estilos de otras pantallas ni los logos. */
+/**
+ * Componentes de presentación reutilizables por las vistas Swing; no contienen
+ * lógica de negocio ni acceden a servicios o persistencia.
+ */
 public final class ComponentesRedondeados {
     private ComponentesRedondeados() { }
 
-    /** Los mismos dibujos de Inicio, escalados para tarjetas y navegación. */
+    /** Iconos vectoriales compartidos por tarjetas y navegación. */
     public static class IconoModulo implements Icon {
         private final String nombre;
         private final int tamano;
@@ -26,11 +29,12 @@ public final class ComponentesRedondeados {
             boolean botonActivo = c instanceof AbstractButton
                     && (new Color(37, 99, 235).equals(fondoBoton)
                     || new Color(29, 78, 216).equals(fondoBoton));
-            Color color = switch (nombre) {
+            Color color = botonActivo ? Color.WHITE : switch (nombre) {
                 case "medicamentos" -> new Color(16, 185, 129);
                 case "ventas" -> new Color(37, 99, 235);
                 case "usuarios" -> new Color(139, 92, 246);
                 case "reportes" -> new Color(245, 158, 11);
+                case "vencimientos" -> new Color(245, 158, 11);
                 case "inicio", "configuracion", "configuración" ->
                     botonActivo ? Color.WHITE : new Color(30, 41, 59);
                 default -> Color.WHITE;
@@ -68,7 +72,7 @@ public final class ComponentesRedondeados {
                     d.drawArc(-46, 5, 27, 27, 0, 180);
                     d.drawArc(19, 5, 27, 27, 0, 180);
                 }
-                case "reportes" -> {
+                case "reportes", "vencimientos" -> {
                     d.fillRoundRect(-32, 1, 15, 29, 4, 4);
                     d.fillRoundRect(-7, -17, 15, 47, 4, 4);
                     d.fillRoundRect(18, -31, 15, 61, 4, 4);
@@ -112,13 +116,20 @@ public final class ComponentesRedondeados {
         return copia;
     }
 
+    /** Botón reutilizable con fondo y esquinas redondeadas. */
     public static class Boton extends JButton {
+        private int arco = 22;
+
         public Boton(String texto) { this(texto, null); }
         public Boton(String texto, Icon icono) {
             super(texto, icono);
             setContentAreaFilled(false);
             setFocusPainted(false);
             setBorderPainted(false);
+        }
+        public void setArco(int valor) {
+            arco = valor;
+            repaint();
         }
         // Algunos estilos existentes llaman setOpaque(true); evitamos el fondo cuadrado.
         @Override public void setOpaque(boolean valor) { super.setOpaque(false); }
@@ -128,15 +139,16 @@ public final class ComponentesRedondeados {
             if (!isEnabled()) color = new Color(0xCBD5E1);
             else if (getModel().isPressed() && getModel().isArmed()) color = color.darker();
             d.setColor(color);
-            d.fillRoundRect(0, 0, getWidth(), getHeight(), 22, 22);
+            d.fillRoundRect(0, 0, getWidth(), getHeight(), arco, arco);
             d.dispose();
             super.paintComponent(g);
         }
         @Override public boolean contains(int x, int y) {
-            return new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 22, 22).contains(x, y);
+            return new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), arco, arco).contains(x, y);
         }
     }
 
+    /** Campo de texto con borde y foco coherentes con el tema visual. */
     public static class Campo extends JTextField {
         public Campo() { this(0); }
         public Campo(int columnas) {
@@ -148,19 +160,20 @@ public final class ComponentesRedondeados {
         @Override protected void paintComponent(Graphics g) {
             Graphics2D d = preparar(g);
             d.setColor(getBackground());
-            d.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-            d.clip(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 20, 20));
+            d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+            d.clip(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 8, 8));
             super.paintComponent(d);
             d.dispose();
         }
         @Override protected void paintBorder(Graphics g) {
             Graphics2D d = preparar(g);
-            d.setColor(hasFocus() ? new Color(0x2563EB) : new Color(0x94A3B8));
-            d.drawRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1), 20, 20);
+            d.setColor(hasFocus() ? new Color(0x2563EB) : new Color(0xD1D5DB));
+            d.drawRoundRect(0, 0, Math.max(0, getWidth() - 1), Math.max(0, getHeight() - 1), 8, 8);
             d.dispose();
         }
     }
 
+    /** Panel reutilizable con esquinas redondeadas y borde configurable. */
     public static class Panel extends JPanel {
         private final int arco;
         private final Color borde;

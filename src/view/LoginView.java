@@ -9,7 +9,10 @@ import java.awt.image.BufferedImage;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 
-/** Presentación del login según la guía visual de Salud Vida. */
+/**
+ * Vista Swing de inicio de sesión y recuperación; presenta los datos y eventos
+ * que procesa {@code LoginController}, sin acceder a persistencia.
+ */
 public class LoginView extends JFrame {
     private static final Color AZUL_OSCURO = new Color(0x1E293B);
     private static final Color AZUL = new Color(0x2563EB);
@@ -166,7 +169,7 @@ public class LoginView extends JFrame {
     private JPanel crearCampo(JTextField campo, boolean clave) {
         JPanel contenedor = new JPanel(new BorderLayout(10, 0));
         contenedor.setBackground(Color.WHITE);
-        contenedor.setBorder(new CampoBorde(new Color(0xCADCF0)));
+        contenedor.setBorder(new CampoBorde(new Color(0xD1D5DB)));
         contenedor.setPreferredSize(new Dimension(330, 48));
         JLabel icono = new JLabel(new AccesoIcon(clave));
         icono.setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 0));
@@ -178,7 +181,7 @@ public class LoginView extends JFrame {
         campo.setOpaque(false);
         campo.addFocusListener(new FocusAdapter() {
             @Override public void focusGained(FocusEvent e) { contenedor.setBorder(new CampoBorde(AZUL)); }
-            @Override public void focusLost(FocusEvent e) { contenedor.setBorder(new CampoBorde(new Color(0xCADCF0))); }
+            @Override public void focusLost(FocusEvent e) { contenedor.setBorder(new CampoBorde(new Color(0xD1D5DB))); }
         });
         contenedor.add(campo, BorderLayout.CENTER);
         return contenedor;
@@ -221,49 +224,87 @@ public class LoginView extends JFrame {
         return new DialogoRecuperacion(this, configuracion, usuario);
     }
 
-    /** Modal de autenticación indicado en el documento de referencia. */
+    /** Tono visual de los mensajes y confirmaciones de la vista. */
+    public enum TonoDialogo { INFORMACION, ADVERTENCIA, DESTRUCTIVO }
+
+    public static void mostrarAlertaError(Component padre, String titulo, String mensaje) {
+        mostrarModalAlerta(padre, titulo, mensaje, tipoAlerta(titulo));
+    }
+
+    public static void mostrarAlerta(Component padre, String titulo, String mensaje,
+                                     TonoDialogo tono) {
+        CustomDialog.TipoModal tipo = switch (tono) {
+            case DESTRUCTIVO -> CustomDialog.TipoModal.ERROR;
+            case ADVERTENCIA -> CustomDialog.TipoModal.AVISO_PRECAUCION;
+            case INFORMACION -> CustomDialog.TipoModal.AVISO;
+        };
+        mostrarModalAlerta(padre, titulo, mensaje, tipo);
+    }
+
+    public static boolean mostrarConfirmacion(Component padre, String titulo, String mensaje) {
+        return mostrarConfirmacion(padre, titulo, mensaje, tonoConfirmacion(titulo));
+    }
+
+    public static boolean mostrarConfirmacion(Component padre, String titulo, String mensaje,
+                                               TonoDialogo tono) {
+        CustomDialog.TipoModal tipo = switch (tono) {
+            case DESTRUCTIVO -> CustomDialog.TipoModal.ELIMINACION;
+            case ADVERTENCIA -> CustomDialog.TipoModal.ADVERTENCIA;
+            case INFORMACION -> CustomDialog.TipoModal.CONFIRMACION;
+        };
+        return CustomDialog.mostrar(padre, titulo, mensaje, tipo);
+    }
+
+    public static boolean mostrarModal(Component padre, String titulo, String mensaje,
+                                       CustomDialog.TipoModal tipo) {
+        return CustomDialog.mostrar(padre, titulo, mensaje, tipo);
+    }
+
+    public static void mostrarExito(Component padre, String titulo, String mensaje) {
+        CustomDialog.mostrarExito(padre, titulo, mensaje);
+    }
+
+    private static void mostrarModalAlerta(Component padre, String titulo, String mensaje,
+                                            CustomDialog.TipoModal tipo) {
+        if (tipo == CustomDialog.TipoModal.EXITO
+                || tipo == CustomDialog.TipoModal.AVISO
+                || tipo == CustomDialog.TipoModal.AVISO_PRECAUCION
+                || tipo == CustomDialog.TipoModal.ERROR) {
+            CustomDialog.mostrar(padre, titulo, mensaje, tipo);
+            return;
+        }
+        throw new IllegalArgumentException("Un aviso no puede usar un tipo de modal de confirmación.");
+    }
+
+    private static CustomDialog.TipoModal tipoAlerta(String titulo) {
+        String normalizado = titulo.toLowerCase(java.util.Locale.ROOT);
+        if (normalizado.contains("cuenta en uso")) return CustomDialog.TipoModal.AVISO;
+        if (normalizado.contains("error") || normalizado.contains("bloque")
+                || normalizado.contains("vencid")) return CustomDialog.TipoModal.ERROR;
+        if (normalizado.contains("advertencia") || normalizado.contains("precauc")
+                || normalizado.contains("atención")) return CustomDialog.TipoModal.AVISO_PRECAUCION;
+        return CustomDialog.TipoModal.AVISO;
+    }
+
+    private static TonoDialogo tonoConfirmacion(String titulo) {
+        String normalizado = titulo.toLowerCase(java.util.Locale.ROOT);
+        if (normalizado.contains("elimin") || normalizado.contains("desactiv")
+                || normalizado.contains("borrar")) return TonoDialogo.DESTRUCTIVO;
+        if (normalizado.contains("sesión") || normalizado.contains("sesion")
+                || normalizado.contains("vaciar") || normalizado.contains("descartar"))
+            return TonoDialogo.ADVERTENCIA;
+        return TonoDialogo.INFORMACION;
+    }
+
     public void mostrarErrorAutenticacion(int restantes) {
-        JDialog dialogo = new JDialog(this, "Error de autenticación", true);
-        dialogo.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-        dialogo.setResizable(false);
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(BorderFactory.createEmptyBorder(28, 30, 26, 30));
-        JLabel aviso = new JLabel(new Icon() {
-            public int getIconWidth() { return 58; }
-            public int getIconHeight() { return 58; }
-            public void paintIcon(Component c, Graphics g, int x, int y) {
-                Graphics2D p = (Graphics2D) g.create();
-                p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                p.setColor(ROJO); p.fillOval(x + 2, y + 2, 54, 54);
-                p.setColor(Color.WHITE); p.setFont(new Font("SansSerif", Font.BOLD, 38));
-                p.drawString("!", x + 21, y + 43); p.dispose();
-            }
-        });
-        aviso.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel titulo = new JLabel("Error de autenticación");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 20));
-        titulo.setForeground(AZUL_OSCURO); titulo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel detalle = new JLabel("<html><div style='text-align:center;width:285px'>"
-                + "Los credenciales ingresados no son válidos<br>o la cuenta está deshabilitada.<br>"
-                + "Intente nuevamente.</div></html>");
-        detalle.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        detalle.setForeground(AZUL_OSCURO); detalle.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel intentos = new JLabel(restantes > 0 ? "Intentos restantes: " + restantes
-                : "Se agotaron los intentos. La aplicación se cerrará.");
-        intentos.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        intentos.setForeground(TEXTO_SECUNDARIO); intentos.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JButton aceptar = new BotonRedondeado("Aceptar"); prepararBoton(aceptar);
-        aceptar.setMaximumSize(new Dimension(160, 40));
-        aceptar.setAlignmentX(Component.CENTER_ALIGNMENT);
-        aceptar.addActionListener(e -> dialogo.dispose());
-        panel.add(aviso); panel.add(Box.createVerticalStrut(16)); panel.add(titulo);
-        panel.add(Box.createVerticalStrut(15)); panel.add(detalle);
-        panel.add(Box.createVerticalStrut(15)); panel.add(intentos);
-        panel.add(Box.createVerticalStrut(22)); panel.add(aceptar);
-        dialogo.setContentPane(panel); dialogo.getRootPane().setDefaultButton(aceptar);
-        dialogo.pack(); dialogo.setLocationRelativeTo(this); dialogo.setVisible(true);
+        String texto = "Los credenciales ingresados no son válidos\n"
+                + "o la cuenta está deshabilitada.\nIntente nuevamente.";
+        if (restantes > 0) {
+            texto += "\n\nIntentos restantes: " + restantes;
+        } else {
+            texto += "\n\nSe agotaron los intentos. La aplicación se cerrará.";
+        }
+        mostrarAlertaError(this, "Error de autenticación", texto);
         campoClave.requestFocusInWindow();
     }
 
@@ -276,6 +317,7 @@ public class LoginView extends JFrame {
     }
 
     /** Un mismo diálogo presenta las dos preguntas y, tras verificarlas, la nueva clave. */
+    /** Diálogo de preguntas y restablecimiento; entrega los datos al controlador. */
     public static class DialogoRecuperacion extends JDialog {
         private final boolean configuracion;
         private final JPasswordField campoColor = new JPasswordField(22);
@@ -383,10 +425,10 @@ public class LoginView extends JFrame {
             campo.setFont(new Font("SansSerif", Font.PLAIN, 15));
             campo.setForeground(AZUL_OSCURO); campo.setCaretColor(AZUL);
             campo.setPreferredSize(new Dimension(390, 42));
-            campo.setBorder(bordeCampoDialogo(new Color(0xCADCF0)));
+            campo.setBorder(bordeCampoDialogo(new Color(0xD1D5DB)));
             campo.addFocusListener(new FocusAdapter() {
                 @Override public void focusGained(FocusEvent e) { campo.setBorder(bordeCampoDialogo(AZUL)); }
-                @Override public void focusLost(FocusEvent e) { campo.setBorder(bordeCampoDialogo(new Color(0xCADCF0))); }
+                @Override public void focusLost(FocusEvent e) { campo.setBorder(bordeCampoDialogo(new Color(0xD1D5DB))); }
             });
             return campo;
         }
@@ -426,6 +468,7 @@ public class LoginView extends JFrame {
     }
 
     /** Isotipo de cruz y hoja recreado en Java2D para que no se pixele al escalar. */
+    /** Icono vectorial de marca utilizado en la pantalla de acceso. */
     public static class MarcaIcon implements Icon {
         private final int tamano;
         public MarcaIcon(int tamano) { this.tamano = tamano; }
@@ -465,6 +508,7 @@ public class LoginView extends JFrame {
         casilla.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
+    /** Icono de la casilla de mostrar contraseña. */
     private static class CasillaIcon implements Icon {
         public int getIconWidth() { return 20; }
         public int getIconHeight() { return 20; }
@@ -492,6 +536,7 @@ public class LoginView extends JFrame {
     }
 
     /** Botón redondeado sin línea interior; conserva estados de hover, presión y espera. */
+    /** Botón de acceso con tratamiento visual propio de esta vista. */
     private static class BotonRedondeado extends JButton {
         BotonRedondeado(String texto) {
             super(texto);
@@ -512,6 +557,7 @@ public class LoginView extends JFrame {
         }
     }
 
+    /** Borde decorativo reutilizado por los campos del formulario. */
     private static class CampoBorde extends AbstractBorder {
         private final Color color;
         CampoBorde(Color color) { this.color = color; }
@@ -522,10 +568,11 @@ public class LoginView extends JFrame {
         @Override public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
             Graphics2D p = (Graphics2D) g.create();
             p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            p.setColor(color); p.drawRoundRect(x, y, w - 1, h - 1, 20, 20); p.dispose();
+            p.setColor(color); p.drawRoundRect(x, y, w - 1, h - 1, 8, 8); p.dispose();
         }
     }
 
+    /** Icono vectorial del botón de acceso. */
     private static class AccesoIcon implements Icon {
         private final boolean clave;
         AccesoIcon(boolean clave) { this.clave = clave; }

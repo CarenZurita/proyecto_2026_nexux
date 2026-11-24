@@ -3,6 +3,7 @@ package controller;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import javax.swing.SwingWorker;
+import model.Rol;
 import model.Usuario;
 import service.VencimientoService;
 import view.VencimientoView;
@@ -28,7 +29,7 @@ public class VencimientoController {
     public void actualizar() {
         if (cargando) return;
         if (!sesionValida()) {
-            vista.mostrarError("Se requiere una sesión de administrador para consultar el reporte.");
+            vista.mostrarError("Se requiere una sesión activa para consultar el reporte.");
             return;
         }
         cargando = true;
@@ -63,6 +64,8 @@ public class VencimientoController {
 
     private boolean sesionValida() {
         return sesion != null && sesion.estaActivo()
-                && sesion.estaEnSesion() && sesion.esAdministrador();
+                && sesion.estaEnSesion()
+                && (Rol.ADMINISTRADOR.equals(sesion.getRol())
+                || Rol.ENCARGADO.equals(sesion.getRol()));
     }
 }

@@ -34,24 +34,47 @@ class AdministradorTest {
     }
 
     @Test
-    void registraActualizaYEliminaMedicamentosCaducados() throws IOException {
-        Medicamento medicamento = crearMedicamento("MED-001", "2020-01-01");
+    void registraMedicamento() throws IOException {
+        Medicamento medicamento = crearMedicamento("MED-001", "2030-01-01");
+
         administrador.registrarMedicamento(medicamento, medicamentos);
+
         assertTrue(administrador.buscarMedicamentoPorCodigo(
                 "MED-001", medicamentos).isPresent());
+    }
+
+    @Test
+    void actualizaMedicamento() throws IOException {
+        Medicamento medicamento = crearMedicamento("MED-001", "2030-01-01");
+        administrador.registrarMedicamento(medicamento, medicamentos);
 
         medicamento.actualizarInfo("Nombre actualizado", "Categoría",
-                "Tabletas", "Laboratorio", 5, "2030-01-01");
+                "Tabletas", "Laboratorio", 5, "2031-01-01");
+
         assertTrue(administrador.actualizarMedicamento(medicamento, medicamentos));
         assertEquals("Nombre actualizado",
                 administrador.buscarMedicamentoPorCodigo("MED-001", medicamentos)
                         .orElseThrow().getNombre());
+    }
 
-        medicamento.actualizarInfo("Aspirina", "Analgésico", "Tabletas",
-                "Laboratorio", 5, "2020-01-01");
-        assertTrue(administrador.actualizarMedicamento(medicamento, medicamentos));
+    @Test
+    void eliminaMedicamentoCaducado() throws IOException {
+        medicamentos.registrar(crearMedicamento("MED-001", "2020-01-01"));
+
         assertTrue(administrador.eliminarMedicamentoCaducado("MED-001", medicamentos));
         assertFalse(administrador.buscarMedicamentoPorCodigo(
+                "MED-001", medicamentos).isPresent());
+    }
+
+    @Test
+    void rechazaEliminarMedicamentoVigente() throws IOException {
+        medicamentos.registrar(crearMedicamento("MED-001", "2999-12-31"));
+
+        IllegalStateException excepcion = assertThrows(IllegalStateException.class,
+                () -> administrador.eliminarMedicamentoCaducado("MED-001", medicamentos));
+
+        assertEquals("El medicamento todavía está vigente.", excepcion.getMessage());
+        assertTrue(administrador.buscarMedicamentoPorCodigo(
                 "MED-001", medicamentos).isPresent());
     }
 
@@ -70,6 +93,23 @@ class AdministradorTest {
                 () -> administrador.registrarMedicamento(
                         crearMedicamento("MED-003", "2030-01-01"), medicamentos));
         assertTrue(excepcion.getMessage().contains("iniciar sesión"));
+    }
+
+    @Test
+    void rechazaRegistrarAntesDeIniciarSesion() throws GeneralSecurityException {
+        Administrador sinSesion = (Administrador) Usuario.crear(
+                "admin2", "Administradora", Rol.ADMINISTRADOR,
+                "ClaveSegura123".toCharArray());
+
+        assertThrows(SecurityException.class,
+                () -> sinSesion.registrarMedicamento(
+                        crearMedicamento("MED-004", "2030-01-01"), medicamentos));
+    }
+
+    @Test
+    void rolEncargadoNoTienePermisoParaGestionarMedicamentos() {
+        assertFalse(Rol.ENCARGADO.verificarPermiso(
+                new Permiso("GESTIONAR_MEDICAMENTOS", "Permiso requerido.")));
     }
 
     private static Medicamento crearMedicamento(String codigo, String vencimiento) {

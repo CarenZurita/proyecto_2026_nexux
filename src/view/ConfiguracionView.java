@@ -2,30 +2,39 @@ package view;
 
 import java.awt.*;
 import javax.swing.*;
+import controller.SeguridadCuentaController;
+import model.Rol;
 import model.Usuario;
 
-/** Configuración de la cuenta del administrador que ha iniciado sesión. */
+/**
+ * Vista de configuración de seguridad de la cuenta; entrega cambios de contraseña
+ * y recuperación al controlador, sin persistirlos directamente.
+ */
 public class ConfiguracionView extends JPanel {
     private static final Color TEXTO = new Color(0x1E293B);
     private static final Color GRIS = new Color(0x64748B);
     private static final Color AZUL = new Color(0x2563EB);
     private final Usuario sesion;
+    private final SeguridadCuentaController seguridadCuentaController;
+    private final boolean puedeConfigurarRecuperacion;
     private final JLabel estado = new JLabel(" ");
 
-    public ConfiguracionView(Usuario sesion) {
+    public ConfiguracionView(Usuario sesion,
+            SeguridadCuentaController seguridadCuentaController) {
         super(new BorderLayout(0, 20));
         if (sesion == null || !sesion.estaActivo() || !sesion.estaEnSesion()
-                || !sesion.esAdministrador()) {
-            throw new SecurityException("Se requiere una sesión de administrador.");
+                || (!Rol.ADMINISTRADOR.equals(sesion.getRol())
+                && !Rol.ENCARGADO.equals(sesion.getRol()))) {
+            throw new SecurityException("Se requiere una sesión válida.");
         }
         this.sesion = sesion;
+        this.seguridadCuentaController = seguridadCuentaController;
+        this.puedeConfigurarRecuperacion = Rol.ADMINISTRADOR.equals(sesion.getRol());
         setBackground(new Color(0xF1F5F9));
         setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
-        JPanel encabezado = new JPanel(new GridLayout(2, 1, 0, 8));
-        encabezado.setOpaque(false);
-        encabezado.add(etiqueta("Configuración", 28, Font.BOLD, TEXTO));
-        encabezado.add(etiqueta("Administra la seguridad de tu cuenta.", 15, Font.PLAIN, GRIS));
+        JPanel encabezado = EstiloSistema.encabezado("configuracion", "Configuración",
+                "Administra la seguridad de tu cuenta.");
         add(encabezado, BorderLayout.NORTH);
 
         JPanel contenido = new JPanel();
@@ -82,16 +91,19 @@ public class ConfiguracionView extends JPanel {
         datos.add(etiqueta("Rol", 12, Font.PLAIN, GRIS), d);
         d.gridx = 1;
         d.weightx = 1;
-        datos.add(etiqueta("Administrador", 13, Font.PLAIN, TEXTO), d);
+        datos.add(etiqueta(Rol.ADMINISTRADOR.equals(sesion.getRol())
+                ? "Administrador" : "Encargado", 13, Font.PLAIN, TEXTO), d);
         agregar(tarjeta, g, datos, 0, 18);
         agregar(tarjeta, g, separador(), 0, 18);
         agregar(tarjeta, g, etiqueta("Contraseña", 14, Font.BOLD, TEXTO), 0, 5);
         agregar(tarjeta, g, etiqueta("Actualiza la contraseña de tu cuenta.", 12, Font.PLAIN, GRIS), 0, 12);
         agregar(tarjeta, g, boton("Cambiar contraseña", false), 0, 18);
-        agregar(tarjeta, g, separador(), 0, 18);
-        agregar(tarjeta, g, etiqueta("Recuperación de acceso", 14, Font.BOLD, TEXTO), 0, 5);
-        agregar(tarjeta, g, etiqueta("Actualiza tus respuestas de seguridad.", 12, Font.PLAIN, GRIS), 0, 12);
-        agregar(tarjeta, g, boton("Actualizar preguntas", true), 0, 0);
+        if (puedeConfigurarRecuperacion) {
+            agregar(tarjeta, g, separador(), 0, 18);
+            agregar(tarjeta, g, etiqueta("Recuperación de acceso", 14, Font.BOLD, TEXTO), 0, 5);
+            agregar(tarjeta, g, etiqueta("Actualiza tus respuestas de seguridad.", 12, Font.PLAIN, GRIS), 0, 12);
+            agregar(tarjeta, g, boton("Actualizar preguntas", true), 0, 0);
+        }
         return tarjeta;
     }
 
@@ -105,7 +117,7 @@ public class ConfiguracionView extends JPanel {
         boton.addActionListener(e -> {
             estado.setText(" ");
             new SeguridadCuentaDialog(SwingUtilities.getWindowAncestor(this), sesion,
-                    preguntas, () -> estado.setText(preguntas
+                    seguridadCuentaController, preguntas, () -> estado.setText(preguntas
                             ? "Respuestas de seguridad actualizadas."
                             : "Contraseña actualizada correctamente.")).setVisible(true);
         });

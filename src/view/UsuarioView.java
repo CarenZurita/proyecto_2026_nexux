@@ -5,9 +5,12 @@ import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.*;
 import javax.swing.table.*;
-import model.GestorUsuarios.FichaUsuario;
+import model.FichaUsuario;
 
-/** Tabla de cuentas integrada en el panel del administrador. */
+/**
+ * Vista MVC de administración de usuarios: muestra fichas públicas y emite
+ * acciones de alta, edición y cambio de estado hacia su controlador.
+ */
 public class UsuarioView extends JPanel {
     static final Color AZUL = new Color(0x2563EB);
     static final Color TEXTO = new Color(0x1E293B);
@@ -32,10 +35,8 @@ public class UsuarioView extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
         JPanel encabezado = new JPanel(new BorderLayout(12, 0));
         encabezado.setOpaque(false);
-        JLabel titulo = new JLabel("Gestión de usuarios");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 26));
-        titulo.setForeground(TEXTO);
-        encabezado.add(titulo, BorderLayout.CENTER);
+        encabezado.add(EstiloSistema.encabezado("usuarios", "Gestión de usuarios",
+                "Administra las cuentas, roles y estados de acceso."), BorderLayout.CENTER);
         encabezado.add(nuevo, BorderLayout.EAST);
         JPanel opciones = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         opciones.setOpaque(false);
@@ -55,6 +56,7 @@ public class UsuarioView extends JPanel {
         cabecera.add(opciones, BorderLayout.SOUTH);
         add(cabecera, BorderLayout.NORTH);
         actualizarFiltros();
+        EstiloSistema.aplicarTabla(tabla);
         tabla.setRowHeight(68);
         tabla.setFont(new Font("SansSerif", Font.PLAIN, 14));
         tabla.setForeground(TEXTO);
@@ -81,7 +83,7 @@ public class UsuarioView extends JPanel {
         tabla.getColumnModel().getColumn(4).setCellEditor(new EditorAcciones());
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setColumnHeaderView(tabla.getTableHeader());
-        scroll.setBorder(BorderFactory.createLineBorder(new Color(0xDBEAFE)));
+        scroll.setBorder(BorderFactory.createLineBorder(EstiloSistema.BORDE));
         add(scroll, BorderLayout.CENTER);
         mensaje.setForeground(new Color(0x64748B));
         mensaje.setFont(new Font("SansSerif", Font.PLAIN, 13));
@@ -142,6 +144,7 @@ public class UsuarioView extends JPanel {
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return b;
     }
+    /** Renderizador tipográfico de las celdas de la tabla. */
     private static class Texto extends DefaultTableCellRenderer {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
             super.getTableCellRendererComponent(t, v, s, f, r, c);
@@ -152,14 +155,17 @@ public class UsuarioView extends JPanel {
             return this;
         }
     }
+    /** Renderizador de los encabezados de columna. */
     private static class Cabecera extends Texto {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
             super.getTableCellRendererComponent(t, v, false, false, r, c);
-            setBackground(new Color(0xEFF6FF)); setForeground(new Color(0x1E40AF));
+            setBackground(EstiloSistema.ENCABEZADO_TABLA);
+            setForeground(new Color(0x1E40AF));
             setFont(new Font("SansSerif", Font.BOLD, 13));
             return this;
         }
     }
+    /** Indicador visual del estado activo o inactivo de una cuenta. */
     private static class Estado extends JPanel implements TableCellRenderer {
         private final JLabel texto = new JLabel() {
             @Override protected void paintComponent(Graphics g) {
@@ -176,8 +182,8 @@ public class UsuarioView extends JPanel {
             boolean activo = Boolean.TRUE.equals(v);
             setBackground(s ? t.getSelectionBackground() : Color.WHITE);
             texto.setText(activo ? "Activo" : "Inactivo");
-            texto.setForeground(new Color(activo ? 0x166534 : 0x475569));
-            texto.setBackground(new Color(activo ? 0xBBF7D0 : 0xE2E8F0));
+            texto.setForeground(new Color(activo ? 0x166534 : 0x991B1B));
+            texto.setBackground(new Color(activo ? 0xDCFCE7 : 0xFEE2E2));
             return this;
         }
     }
@@ -197,11 +203,13 @@ public class UsuarioView extends JPanel {
         }
         return p;
     }
+    /** Presentación de las acciones disponibles para cada fila. */
     private static class Acciones implements TableCellRenderer {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
             return acciones(((FichaUsuario)v).activo());
         }
     }
+    /** Convierte la interacción con botones de fila en eventos de controlador. */
     private class EditorAcciones extends AbstractCellEditor implements TableCellEditor {
         private FichaUsuario cuenta;
         @Override public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int r, int c) {

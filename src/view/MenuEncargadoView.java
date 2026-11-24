@@ -12,16 +12,25 @@ import java.util.Map;
 
 import model.Rol;
 import model.Usuario;
+import controller.MedicamentoController;
+import controller.SeguridadCuentaController;
 
+/**
+ * Ventana principal del encargado; organiza las vistas permitidas al rol
+ * y recibe sus controladores desde el punto de composición.
+ */
 public class MenuEncargadoView extends JFrame {
 
     private final Usuario sesion;
     private final Runnable alCerrarSesion;
+    private final SeguridadCuentaController seguridadCuentaController;
+    private final MedicamentoController medicamentoController;
 
     private final CardLayout cardLayout = new CardLayout();
     private final JPanel panelContenido = new JPanel(cardLayout);
 
     private MedicamentoView vistaMedicamentos;
+    private controller.VencimientoController controladorVencimientos;
 
     private final Map<String, JButton> botonesMenu =
             new LinkedHashMap<>();
@@ -31,14 +40,16 @@ public class MenuEncargadoView extends JFrame {
     // COLORES COMPARTIDOS CON EL PANEL DEL ADMINISTRADOR
     private final Color AZUL_OSCURO = new Color(30, 41, 59);
     private final Color AZUL = new Color(37, 99, 235);
-    private final Color FONDO_MENU = new Color(0xE8F7F2);
-    private final Color FONDO_MENU_HOVER = new Color(0xD5ECE6);
+    private final Color FONDO_MENU = new Color(0xCDE5FA);
+    private final Color FONDO_MENU_HOVER = new Color(0xB8D9F0);
     private final Color AZUL_HOVER = new Color(29, 78, 216);
     private final Color FONDO = new Color(241, 245, 249);
     private final Color GRIS = new Color(100, 116, 139);
 
     public MenuEncargadoView(
-            Usuario sesion, Runnable alCerrarSesion) {
+            Usuario sesion, Runnable alCerrarSesion,
+            SeguridadCuentaController seguridadCuentaController,
+            MedicamentoController medicamentoController) {
 
         // VALIDAR SESION DEL ENCARGADO
         if (sesion == null
@@ -52,6 +63,8 @@ public class MenuEncargadoView extends JFrame {
 
         this.sesion = sesion;
         this.alCerrarSesion = alCerrarSesion;
+        this.seguridadCuentaController = seguridadCuentaController;
+        this.medicamentoController = medicamentoController;
 
         setTitle("Salud Vida - Panel Encargado");
         setIconImage(LoginView.crearIconoVentana());
@@ -96,7 +109,7 @@ public class MenuEncargadoView extends JFrame {
 
         // BOTONES DEL MENU
         JPanel botones = new JPanel(
-                new GridLayout(3, 1, 0, 10));
+                new GridLayout(5, 1, 0, 10));
 
         botones.setOpaque(false);
         botones.setBorder(
@@ -109,6 +122,8 @@ public class MenuEncargadoView extends JFrame {
         agregarBoton(botones, "Inicio");
         agregarBoton(botones, "Medicamentos");
         agregarBoton(botones, "Ventas");
+        agregarBoton(botones, "Vencimientos");
+        agregarBoton(botones, "Configuracion");
 
         // MANTENER LOS BOTONES ARRIBA
         JPanel navegacion = new JPanel(new BorderLayout());
@@ -123,6 +138,7 @@ public class MenuEncargadoView extends JFrame {
                         "Cerrar sesión",
                         new ComponentesRedondeados.IconoModulo(
                                 "salir", 24));
+        ((ComponentesRedondeados.Boton) cerrarSesion).setArco(12);
 
         cerrarSesion.setIconTextGap(10);
         cerrarSesion.setBackground(new Color(239, 68, 68));
@@ -170,6 +186,7 @@ public class MenuEncargadoView extends JFrame {
                 nombre,
                 new ComponentesRedondeados.IconoModulo(
                         nombre, 32));
+        ((ComponentesRedondeados.Boton) boton).setArco(12);
 
         boton.setIconTextGap(10);
 
@@ -244,41 +261,31 @@ public class MenuEncargadoView extends JFrame {
                 new Font("SansSerif", Font.PLAIN, 16));
         descripcion.setForeground(GRIS);
 
-        JPanel encabezado =
-                new JPanel(new GridLayout(2, 1, 0, 10));
-
-        encabezado.setOpaque(false);
-        encabezado.add(titulo);
-        encabezado.add(descripcion);
+        JPanel encabezado = EstiloSistema.encabezado(
+                "inicio", titulo.getText(), descripcion.getText());
 
         inicio.add(encabezado, BorderLayout.NORTH);
 
-        // TARJETAS IGUALES AL ADMINISTRADOR
+        // TARJETAS CON LA MISMA DISTRIBUCIÓN DEL INICIO DEL ADMINISTRADOR
         JPanel tarjetas = new JPanel(
-                new GridLayout(1, 2, 20, 20));
+                new GridLayout(2, 2, 20, 20));
 
         tarjetas.setOpaque(false);
-        tarjetas.setPreferredSize(new Dimension(0, 250));
+        tarjetas.setBorder(
+                BorderFactory.createEmptyBorder(35, 0, 0, 0));
 
         tarjetas.add(crearTarjeta("Medicamentos"));
         tarjetas.add(crearTarjeta("Ventas"));
+        tarjetas.add(crearTarjeta("Vencimientos"));
 
-        JPanel centro = new JPanel(new BorderLayout());
-        centro.setOpaque(false);
-
-        centro.setBorder(
-                BorderFactory.createEmptyBorder(35, 0, 0, 0));
-
-        centro.add(tarjetas, BorderLayout.NORTH);
-
-        inicio.add(centro, BorderLayout.CENTER);
+        inicio.add(tarjetas, BorderLayout.CENTER);
 
         panelContenido.add(inicio, "Inicio");
 
         // PANTALLA MEDICAMENTOS
         JPanel medicamentos = new JPanel(new BorderLayout());
 
-        vistaMedicamentos = new MedicamentoView(sesion);
+        vistaMedicamentos = new MedicamentoView(sesion, medicamentoController);
 
         medicamentos.add(
                 vistaMedicamentos, BorderLayout.CENTER);
@@ -292,28 +299,26 @@ public class MenuEncargadoView extends JFrame {
         ventas.setBorder(
                 BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
-        JLabel tituloVentas =
-                new JLabel("Registro de ventas");
-
-        tituloVentas.setFont(
-                new Font("SansSerif", Font.BOLD, 28));
-        tituloVentas.setForeground(AZUL_OSCURO);
-
-        JPanel encabezadoVentas =
-                new JPanel(new BorderLayout());
-
-        encabezadoVentas.setOpaque(false);
-        encabezadoVentas.add(
-                tituloVentas, BorderLayout.CENTER);
-
-        ventas.add(encabezadoVentas, BorderLayout.NORTH);
-
         // SE CONSERVA EL FORMULARIO ORIGINAL
         VentaView vistaVentas = new VentaView(sesion);
 
         ventas.add(vistaVentas, BorderLayout.CENTER);
 
         panelContenido.add(ventas, "Ventas");
+
+        JPanel vencimientos = new JPanel(new BorderLayout(0, 22));
+        vencimientos.setBackground(FONDO);
+        vencimientos.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
+        vencimientos.add(EstiloSistema.encabezado("vencimientos", "Vencimientos",
+                "Consulta los medicamentos próximos a vencer."),
+                BorderLayout.NORTH);
+        VencimientoView vistaVencimientos = new VencimientoView(false);
+        controladorVencimientos = new controller.VencimientoController(sesion, vistaVencimientos);
+        vencimientos.add(vistaVencimientos, BorderLayout.CENTER);
+        panelContenido.add(vencimientos, "Vencimientos");
+
+        panelContenido.add(
+                new ConfiguracionView(sesion, seguridadCuentaController), "Configuracion");
     }
 
     // CREAR TARJETAS CON EL ESTILO DEL ADMINISTRADOR
@@ -329,6 +334,10 @@ public class MenuEncargadoView extends JFrame {
 
             case "Ventas":
                 descripcion = "Registro y control de ventas";
+                break;
+
+            case "Vencimientos":
+                descripcion = "Control de fechas de vencimiento";
                 break;
 
             default:
@@ -454,6 +463,9 @@ public class MenuEncargadoView extends JFrame {
         if (nombre.equals("Medicamentos")) {
             vistaMedicamentos.recargar();
         }
+        if (nombre.equals("Vencimientos")) {
+            controladorVencimientos.actualizar();
+        }
 
         pantallaActual = nombre;
 
@@ -473,15 +485,8 @@ public class MenuEncargadoView extends JFrame {
 
     // CERRAR SESION
     private void cerrarSesion() {
-
-        int respuesta = JOptionPane.showConfirmDialog(
-                this,
-                "¿Desea cerrar sesión?",
-                "Confirmar",
-                JOptionPane.YES_NO_OPTION);
-
-        if (respuesta == JOptionPane.YES_OPTION) {
-
+        if (LoginView.mostrarConfirmacion(this, "Cerrar sesión", "¿Desea cerrar sesión?",
+                LoginView.TonoDialogo.ADVERTENCIA)) {
             sesion.cerrarSesion();
             dispose();
             alCerrarSesion.run();

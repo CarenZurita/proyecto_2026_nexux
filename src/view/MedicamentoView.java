@@ -4,34 +4,24 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
-import java.awt.Dialog;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
-import java.io.IOException;
-import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 
 import javax.swing.AbstractCellEditor;
 import javax.swing.BorderFactory;
 import javax.swing.Icon;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JComponent;
-import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -39,11 +29,8 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.border.AbstractBorder;
-import javax.swing.border.CompoundBorder;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -54,26 +41,26 @@ import javax.swing.table.TableCellRenderer;
 import model.Medicamento;
 import model.Rol;
 import model.Usuario;
-import persistence.MedicamentoRepository;
+import service.DatosMedicamento;
+import controller.MedicamentoController;
 
-/** Consulta del inventario y, para administradores, mantenimiento de medicamentos. */
+/**
+ * Vista MVC del inventario: presenta búsqueda, stock y acciones de administración;
+ * delega las operaciones al controlador y no accede directamente al repositorio.
+ */
 public class MedicamentoView extends JPanel {
     private static final Color AZUL = new Color(0x2563EB);
     private static final Color AZUL_CLARO = new Color(0xDBEAFE);
     private static final Color OSCURO = new Color(0x1E293B);
     private static final Color FONDO = new Color(0xF1F5F9);
     private static final Color TEXTO_SECUNDARIO = new Color(0x64748B);
-    private static final Color BORDE = new Color(0xDCE6F1);
-    private static final Color ROJO = new Color(0xEF4444);
+    private static final Color BORDE = EstiloSistema.BORDE;
     private static final Color BLUE = new Color(0x2563EB);
     private static final Color RED_ACCION = new Color(0xF43737);
-    private static final Color TEXTO_FORM = new Color(0x1E293B);
-    private static final DateTimeFormatter FORMATO_FECHA =
-            DateTimeFormatter.ofPattern("MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
     private final Usuario sesion;
     private final boolean puedeGestionar;
-    private final MedicamentoRepository repositorio = new MedicamentoRepository();
+    private final MedicamentoController medicamentoController;
     private final JTextField busqueda = new CampoBusqueda("Buscar por nombre o código...");
     private final DefaultTableModel modelo = new DefaultTableModel(
             new Object[]{"Código", "Nombre", "Presentación", "Stock", "Precio (Bs)", "Vencimiento"}, 0) {
@@ -85,14 +72,17 @@ public class MedicamentoView extends JPanel {
     private final JTable tabla = new JTable(modelo);
     private List<Medicamento> inventario = new ArrayList<>();
     private JLabel registroVisible;
+    private long solicitudInventario;
+    private SwingWorker<List<Medicamento>, Void> cargaInventario;
 
-    public MedicamentoView(Usuario sesion) {
+    public MedicamentoView(Usuario sesion, MedicamentoController medicamentoController) {
         if (sesion == null || !sesion.estaActivo() || !sesion.estaEnSesion()
                 || (!Rol.ADMINISTRADOR.equals(sesion.getRol())
                 && !Rol.ENCARGADO.equals(sesion.getRol()))) {
             throw new SecurityException("Se requiere una sesión válida para consultar medicamentos.");
         }
         this.sesion = sesion;
+        this.medicamentoController = medicamentoController;
         this.puedeGestionar = Rol.ADMINISTRADOR.equals(sesion.getRol());
         construirInterfaz();
         cargarInventario();
@@ -101,24 +91,11 @@ public class MedicamentoView extends JPanel {
     private void construirInterfaz() {
         setLayout(new BorderLayout(0, 22));
         setBackground(FONDO);
+        setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
-        JPanel encabezado = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
-        encabezado.setOpaque(false);
-        JLabel icono = new JLabel(new IconoMedicamento(54));
-        JLabel titulo = new JLabel("Gestión de medicamentos");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 27));
-        titulo.setForeground(OSCURO);
-        JLabel subtitulo = new JLabel("Consulta y administra el inventario de la farmacia");
-        subtitulo.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        subtitulo.setForeground(TEXTO_SECUNDARIO);
-        JPanel titulos = new JPanel();
-        titulos.setOpaque(false);
-        titulos.setLayout(new javax.swing.BoxLayout(titulos, javax.swing.BoxLayout.Y_AXIS));
-        titulos.add(titulo);
-        titulos.add(javax.swing.Box.createVerticalStrut(4));
-        titulos.add(subtitulo);
-        encabezado.add(icono);
-        encabezado.add(titulos);
+        JPanel encabezado = EstiloSistema.encabezado("medicamentos",
+                "Gestión de medicamentos",
+                "Consulta y administra el inventario de la farmacia");
         add(encabezado, BorderLayout.NORTH);
 
         RoundedPanel contenido = new RoundedPanel(18, Color.WHITE, BORDE);
@@ -127,7 +104,7 @@ public class MedicamentoView extends JPanel {
 
         JPanel herramientas = new JPanel(new BorderLayout(12, 0));
         herramientas.setOpaque(false);
-        busqueda.setToolTipText("Buscar por código, nombre, presentación, categoría, laboratorio o marca");
+        busqueda.setToolTipText("Buscar por nombre, código, marca o precio exacto");
         busqueda.setBorder(new RoundedLineBorder(BORDE, 12, 1, 12, 14));
         busqueda.setPreferredSize(new java.awt.Dimension(300, 44));
         herramientas.add(busqueda, BorderLayout.CENTER);
@@ -141,6 +118,7 @@ public class MedicamentoView extends JPanel {
         }
         contenido.add(herramientas, BorderLayout.NORTH);
 
+        EstiloSistema.aplicarTabla(tabla);
         tabla.setRowHeight(48);
         tabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tabla.setAutoCreateRowSorter(true);
@@ -153,8 +131,8 @@ public class MedicamentoView extends JPanel {
         tabla.setFillsViewportHeight(true);
         tabla.getTableHeader().setPreferredSize(new java.awt.Dimension(0, 42));
         tabla.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
-        tabla.getTableHeader().setBackground(new Color(0xF1F6FC));
-        tabla.getTableHeader().setForeground(OSCURO);
+        tabla.getTableHeader().setBackground(EstiloSistema.ENCABEZADO_TABLA);
+        tabla.getTableHeader().setForeground(new Color(0x1E40AF));
         tabla.getTableHeader().setReorderingAllowed(false);
         tabla.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDE));
         tabla.setSelectionBackground(new Color(0xDBEAFE));
@@ -194,21 +172,21 @@ public class MedicamentoView extends JPanel {
         busqueda.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
-                mostrarFiltrados();
+                cargarInventario();
             }
 
             @Override
             public void removeUpdate(DocumentEvent e) {
-                mostrarFiltrados();
+                cargarInventario();
             }
 
             @Override
             public void changedUpdate(DocumentEvent e) {
-                mostrarFiltrados();
+                cargarInventario();
             }
         });
         registroVisible = cantidadRegistros;
-        mostrarFiltrados();
+        EstiloSistema.aplicarCampos(this);
     }
 
     private JButton crearBoton(String texto, Color color) {
@@ -216,29 +194,46 @@ public class MedicamentoView extends JPanel {
     }
 
     private void cargarInventario() {
-        try {
-            inventario = repositorio.listar();
-            mostrarFiltrados();
-        } catch (IOException e) {
-            mostrarError("No se pudo cargar el inventario: " + e.getMessage());
+        String consulta = busqueda.getText().trim();
+        long solicitud = ++solicitudInventario;
+        if (cargaInventario != null) {
+            cargaInventario.cancel(true);
         }
+        // La lectura del inventario ocurre fuera del EDT; done() actualiza componentes Swing.
+        cargaInventario = new SwingWorker<>() {
+            @Override
+            protected List<Medicamento> doInBackground() throws Exception {
+                return consulta.isEmpty()
+                        ? medicamentoController.listar(sesion)
+                        : medicamentoController.buscar(sesion, consulta);
+            }
+
+            @Override
+            protected void done() {
+                if (solicitud != solicitudInventario) {
+                    return;
+                }
+                try {
+                    inventario = get();
+                    mostrarInventario();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    mostrarError("La carga del inventario fue interrumpida.");
+                } catch (ExecutionException e) {
+                    mostrarError(mensajeError(e));
+                }
+            }
+        };
+        cargaInventario.execute();
     }
 
     public void recargar() {
         cargarInventario();
     }
 
-    private void mostrarFiltrados() {
-        String consulta = busqueda.getText().trim().toLowerCase(Locale.ROOT);
+    private void mostrarInventario() {
         modelo.setRowCount(0);
         for (Medicamento medicamento : inventario) {
-            String campos = String.join(" ",
-                            medicamento.getCodigo(), medicamento.getNombre(), medicamento.getPresentacion(),
-                            medicamento.getCategoria(), medicamento.getLaboratorio(), medicamento.getMarca())
-                    .toLowerCase(Locale.ROOT);
-            if (!campos.contains(consulta)) {
-                continue;
-            }
             modelo.addRow(new Object[]{
                     medicamento.getCodigo(),
                     medicamento.getNombre(),
@@ -276,288 +271,48 @@ public class MedicamentoView extends JPanel {
             mostrarError(e.getMessage());
             return;
         }
-        boolean nuevo = existente == null;
-        JDialog dialogo = new JDialog(
-                javax.swing.SwingUtilities.getWindowAncestor(this),
-                nuevo ? "Registrar medicamento" : "Editar medicamento",
-                Dialog.ModalityType.APPLICATION_MODAL);
-        dialogo.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-        dialogo.setResizable(false);
-
-        JPanel root = new RoundedPanel(16, Color.WHITE, BORDE);
-        root.setLayout(new BorderLayout(0, 16));
-        root.setBorder(BorderFactory.createEmptyBorder(24, 28, 20, 28));
-
-        JLabel titulo = new JLabel(nuevo ? "Registrar nuevo medicamento" : "Editar medicamento");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 20));
-        titulo.setForeground(TEXTO_FORM);
-        JLabel subtitulo = new JLabel("Los campos marcados con * son obligatorios");
-        subtitulo.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        subtitulo.setForeground(TEXTO_SECUNDARIO);
-        JPanel header = new JPanel(new GridLayout(2, 1, 0, 4));
-        header.setOpaque(false);
-        header.add(titulo);
-        header.add(subtitulo);
-        root.add(header, BorderLayout.NORTH);
-
-        JTextField nombre = campo(existente == null ? "" : existente.getNombre(), "Nombre comercial");
-        JTextField codigo = campo(existente == null ? "" : existente.getCodigo(), "Código interno");
-        JComboBox<String> categoria = crearCombo(new String[]{
-                "Analgésico", "Antibiótico", "Antiinflamatorio", "Antihistamínico",
-                "Antiácido", "Vitamina", "Otro"
-        }, existente == null ? null : existente.getCategoria());
-        JComboBox<String> laboratorio = crearCombo(new String[]{
-                "INTI", "Bagó", "COFAR", "Farmacorp", "Otro"
-        }, existente == null ? null : existente.getLaboratorio());
-        JTextField presentacion = campo(existente == null ? "" : existente.getPresentacion(), "Ej. Caja x 20 tabletas");
-        JTextField precio = campo(existente == null ? "" : String.format(Locale.US, "%.2f", existente.getPrecio()), "Precio en Bs.");
-        JTextField cantidad = campo(existente == null ? "" : Integer.toString(existente.getCantidadDisponible()), "Stock inicial");
-        JTextField vencimiento = campo(existente == null ? "" : existente.getFechaVencimientoDate().format(FORMATO_FECHA), "MM/AAAA");
-
-        JPanel grid = new JPanel(new GridBagLayout());
-        grid.setOpaque(false);
-        GridBagConstraints c = new GridBagConstraints();
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.weightx = 1;
-        c.insets = new Insets(0, 0, 14, 12);
-
-        addField(grid, "Nombre *", nombre, 0, 0, c);
-        addField(grid, "Código *", codigo, 1, 0, c);
-        c.insets = new Insets(0, 0, 14, 0);
-        addField(grid, "Categoría *", categoria, 2, 0, c);
-        c.insets = new Insets(0, 0, 14, 12);
-        addField(grid, "Laboratorio *", laboratorio, 0, 1, c);
-        addField(grid, "Presentación *", presentacion, 1, 1, c);
-        addField(grid, "Vencimiento (MM/AAAA) *", vencimiento, 2, 1, c);
-        c.insets = new Insets(0, 0, 0, 12);
-        addField(grid, "Precio (Bs) *", precio, 0, 2, c);
-        addField(grid, "Cantidad *", cantidad, 1, 2, c);
-        c.insets = new Insets(0, 0, 0, 0);
-        JPanel empty = new JPanel();
-        empty.setOpaque(false);
-        c.gridx = 2;
-        c.gridy = 2;
-        c.gridwidth = 1;
-        grid.add(empty, c);
-
-        root.add(grid, BorderLayout.CENTER);
-
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        buttons.setOpaque(false);
-        JButton cancel = boton("Cancelar", new Color(0xE5E7EB));
-        cancel.setForeground(TEXTO_FORM);
-        JButton save = boton("Guardar", BLUE);
-        save.setForeground(Color.WHITE);
-
-        cancel.addActionListener(e -> dialogo.dispose());
-        save.addActionListener(e -> guardarMedicamento(dialogo, existente, nombre, codigo,
-                categoria, presentacion, laboratorio, precio, cantidad, vencimiento));
-
-        buttons.add(cancel);
-        buttons.add(save);
-        root.add(buttons, BorderLayout.SOUTH);
-
-        dialogo.setContentPane(root);
-        dialogo.pack();
-        dialogo.setMinimumSize(new java.awt.Dimension(720, 480));
+        MedicamentoFormDialog dialogo = new MedicamentoFormDialog(this, existente);
+        dialogo.alGuardar(datos -> guardarMedicamento(dialogo, existente, datos));
         dialogo.setLocationRelativeTo(this);
-        dialogo.getRootPane().setDefaultButton(save);
         dialogo.setVisible(true);
     }
 
-    private JButton boton(String texto, Color color) {
-        JButton b = new JButton(texto);
-        b.setFont(new Font("SansSerif", Font.BOLD, 13));
-        b.setFocusPainted(false);
-        b.setBorderPainted(false);
-        b.setContentAreaFilled(false);
-        b.setOpaque(false);
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        b.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
-        Color colorTexto = color.equals(new Color(0xE5E7EB)) ? TEXTO_FORM : Color.WHITE;
-        b.putClientProperty("colorBase", color);
-        b.putClientProperty("colorTexto", colorTexto);
-        b.setBackground(color);
-        b.setForeground(colorTexto);
-        b.setUI(new javax.swing.plaf.basic.BasicButtonUI() {
-            @Override
-            public void paint(Graphics g, JComponent c) {
-                JButton btn = (JButton) c;
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(btn.getBackground());
-                g2.fillRoundRect(0, 0, btn.getWidth(), btn.getHeight(), 10, 10);
-                g2.dispose();
-                super.paint(g, c);
-            }
-        });
-        return b;
-    }
-
-    private JTextField campo(String value, String placeholder) {
-        JTextField f = new JTextField(value);
-        f.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        f.setForeground(TEXTO_FORM);
-        f.setBorder(new CompoundBorder(
-                new LineBorder(new Color(0xCBD5E1), 1, true),
-                new EmptyBorder(8, 12, 8, 12)
-        ));
-        if (placeholder != null && !placeholder.isEmpty()) {
-            f.setToolTipText(placeholder);
-        }
-        return f;
-    }
-
-    private JTextField campo(String texto) {
-        return campo(texto, "");
-    }
-
-    private void addField(JPanel panel, String label, JComponent field, int x, int y, GridBagConstraints c) {
-        JPanel wrapper = new JPanel(new BorderLayout(0, 6));
-        wrapper.setOpaque(false);
-        JLabel l = new JLabel(label);
-        l.setFont(new Font("SansSerif", Font.BOLD, 12));
-        l.setForeground(TEXTO_FORM);
-        wrapper.add(l, BorderLayout.NORTH);
-        wrapper.add(field, BorderLayout.CENTER);
-        GridBagConstraints nc = (GridBagConstraints) c.clone();
-        nc.gridx = x;
-        nc.gridy = y;
-        nc.gridwidth = 1;
-        panel.add(wrapper, nc);
-    }
-
-    private JComboBox<String> crearCombo(String[] opciones, String seleccionado) {
-        JComboBox<String> combo = new JComboBox<>();
-        combo.addItem("Seleccione una opción");
-        for (String opcion : opciones) {
-            combo.addItem(opcion);
-        }
-        combo.setEditable(false);
-        combo.setSelectedIndex(0);
-        if (seleccionado != null) {
-            boolean encontrado = false;
-            for (int i = 1; i < combo.getItemCount(); i++) {
-                if (combo.getItemAt(i).equalsIgnoreCase(seleccionado)) {
-                    combo.setSelectedIndex(i);
-                    encontrado = true;
-                    break;
-                }
-            }
-            if (!encontrado) {
-                combo.addItem(seleccionado);
-                combo.setSelectedItem(seleccionado);
-            }
-        }
-        combo.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        combo.setBackground(Color.WHITE);
-        combo.setBorder(new RoundedLineBorder(BORDE, 9, 1, 4, 8));
-        return combo;
-    }
-
-    private JPanel crearFormulario(JTextField nombre, JTextField codigo,
-                                   JComboBox<String> categoria, JComboBox<String> laboratorio,
-                                   JTextField presentacion, JTextField precio,
-                                   JTextField cantidad, JTextField vencimiento) {
-        JPanel formulario = new JPanel(new GridBagLayout());
-        formulario.setBackground(Color.WHITE);
-        formulario.setBorder(BorderFactory.createEmptyBorder(18, 18, 12, 18));
-        agregarCampo(formulario, "Nombre *", nombre, 0, 0, 1);
-        agregarCampo(formulario, "Código *", codigo, 1, 0, 1);
-        agregarCampo(formulario, "Categoría *", categoria, 0, 1, 1);
-        agregarCampo(formulario, "Laboratorio *", laboratorio, 1, 1, 1);
-        agregarCampo(formulario, "Presentación *", presentacion, 0, 2, 2);
-        agregarCampo(formulario, "Precio (Bs) *", precio, 0, 3, 1);
-        agregarCampo(formulario, "Cantidad *", cantidad, 1, 3, 1);
-        agregarCampo(formulario, "Vencimiento (MM/AAAA) *", vencimiento, 2, 3, 1);
-        return formulario;
-    }
-
-    private void agregarCampo(JPanel panel, String etiqueta, Component campo,
-                              int columna, int fila, int ancho) {
-        JPanel grupo = new JPanel(new BorderLayout(0, 6));
-        grupo.setOpaque(false);
-        JLabel label = new JLabel(etiqueta);
-        label.setFont(new Font("SansSerif", Font.BOLD, 13));
-        label.setForeground(OSCURO);
-        grupo.add(label, BorderLayout.NORTH);
-        grupo.add(campo, BorderLayout.CENTER);
-
-        GridBagConstraints constraints = new GridBagConstraints();
-        constraints.gridx = columna;
-        constraints.gridy = fila;
-        constraints.gridwidth = ancho;
-        constraints.weightx = ancho == 2 ? 2 : 1;
-        constraints.fill = GridBagConstraints.HORIZONTAL;
-        constraints.anchor = GridBagConstraints.NORTH;
-        constraints.insets = new Insets(0, columna == 0 ? 0 : 10, 14, 0);
-        panel.add(grupo, constraints);
-    }
-
-    private void guardarMedicamento(JDialog dialogo, Medicamento existente,
-                                    JTextField nombre, JTextField codigo,
-                                    JComboBox<String> categoria, JTextField presentacion,
-                                    JComboBox<String> laboratorio, JTextField precio,
-                                    JTextField cantidad, JTextField vencimiento) {
+    private void guardarMedicamento(MedicamentoFormDialog dialogo, Medicamento existente,
+                                    DatosMedicamento datos) {
         try {
             validarSesionAdministradora();
-            String nombreIngresado = nombre.getText().trim();
-            String codigoIngresado = codigo.getText().trim();
-            String presentacionIngresada = presentacion.getText().trim();
-            String vencimientoIngresado = vencimiento.getText().trim();
-            if (nombreIngresado.isEmpty() || codigoIngresado.isEmpty()
-                    || presentacionIngresada.isEmpty() || vencimientoIngresado.isEmpty()
-                    || categoria.getSelectedIndex() == 0 || laboratorio.getSelectedIndex() == 0) {
-                mostrarError(dialogo, "Completa todos los campos obligatorios.");
-                return;
-            }
-
-            for (Medicamento medicamentoExistente : repositorio.listar()) {
-                if (medicamentoExistente.getCodigo().equalsIgnoreCase(codigoIngresado)
-                        && (existente == null || !medicamentoExistente.getCodigo()
-                        .equalsIgnoreCase(existente.getCodigo()))) {
-                    mostrarError(dialogo, "El código " + codigoIngresado
-                            + " ya se encuentra registrado.");
-                    return;
-                }
-            }
-
-            double precioIngresado = Double.parseDouble(precio.getText().trim().replace(',', '.'));
-            int cantidadIngresada = Integer.parseInt(cantidad.getText().trim());
-            if (precioIngresado < 0 || cantidadIngresada < 0) {
-                throw new NumberFormatException();
-            }
-            if (!vencimientoIngresado.matches("(0[1-9]|1[0-2])/\\d{4}")) {
-                throw new DateTimeParseException("Fecha de vencimiento inválida.",
-                        vencimientoIngresado, 0);
-            }
-            YearMonth mesVencimiento = YearMonth.parse(vencimientoIngresado, FORMATO_FECHA);
-            LocalDate fecha = mesVencimiento.atEndOfMonth();
-
-            Medicamento medicamento = new Medicamento(
-                    nombreIngresado, codigoIngresado,
-                    String.valueOf(categoria.getSelectedItem()), presentacionIngresada,
-                    String.valueOf(laboratorio.getSelectedItem()),
-                    existente == null ? "Sin marca" : existente.getMarca(),
-                    cantidadIngresada, fecha.toString(), precioIngresado,
-                    existente == null ? 0 : existente.getStockMinimo());
-            if (existente == null) {
-                if (repositorio.buscarPorCodigo(codigoIngresado).isPresent()) {
-                    throw new IllegalArgumentException("Ya existe un medicamento con ese código.");
-                }
-                repositorio.registrar(medicamento);
-            } else if (!repositorio.actualizar(medicamento)) {
-                throw new IllegalStateException("El medicamento ya no existe en el inventario.");
-            }
-            dialogo.dispose();
-            cargarInventario();
-        } catch (NumberFormatException e) {
-            mostrarError(dialogo, "Precio o cantidad no válidos. Usa números positivos.");
-        } catch (DateTimeParseException e) {
-            mostrarError(dialogo, "La fecha debe tener formato MM/AAAA, por ejemplo 12/2027.");
-        } catch (IOException | IllegalArgumentException | SecurityException | IllegalStateException e) {
-            mostrarError(dialogo, "Error al guardar: " + e.getMessage());
+        } catch (SecurityException e) {
+            dialogo.mostrarError(e.getMessage());
+            return;
         }
+        dialogo.setProcesando(true);
+        // El guardado del formulario realiza I/O fuera del EDT y reporta el resultado en done().
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                if (existente == null) {
+                    medicamentoController.registrar(sesion, datos);
+                } else {
+                    medicamentoController.actualizar(sesion, existente.getCodigo(), datos);
+                }
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                dialogo.setProcesando(false);
+                try {
+                    get();
+                    dialogo.dispose();
+                    cargarInventario();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    dialogo.mostrarError("La operación fue interrumpida. Vuelve a intentarlo.");
+                } catch (ExecutionException e) {
+                    dialogo.mostrarError(mensajeError(e));
+                }
+            }
+        }.execute();
     }
 
     private void eliminarPorCodigo(String codigo) {
@@ -575,102 +330,34 @@ public class MedicamentoView extends JPanel {
         if (!confirmarEliminacion(medicamento)) {
             return;
         }
-        try {
-            validarSesionAdministradora();
-            if (!repositorio.eliminar(medicamento.getCodigo())) {
-                throw new IllegalStateException("El medicamento ya no existe en el inventario.");
+        // La eliminación escribe el archivo fuera del EDT para mantener receptiva la interfaz.
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                medicamentoController.eliminar(sesion, medicamento.getCodigo());
+                return null;
             }
-            cargarInventario();
-        } catch (IOException | SecurityException | IllegalStateException e) {
-            mostrarError("No se pudo eliminar el medicamento: " + e.getMessage());
-        }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    cargarInventario();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    mostrarError("La operación fue interrumpida. Vuelve a intentarlo.");
+                } catch (ExecutionException e) {
+                    mostrarError(mensajeError(e));
+                }
+            }
+        }.execute();
     }
 
     private boolean confirmarEliminacion(Medicamento medicamento) {
-        JDialog confirmacion = new JDialog(SwingUtilities.getWindowAncestor(this),
-                "Confirmar eliminación", Dialog.ModalityType.APPLICATION_MODAL);
-        confirmacion.setUndecorated(true);
-        confirmacion.setResizable(false);
-        confirmacion.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-        boolean[] confirmado = {false};
-
-        RoundedPanel marco = new RoundedPanel(18, new Color(0xE7EEF7), new Color(0x7892B3));
-        marco.setLayout(new BorderLayout());
-        marco.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-
-        RoundedPanel tarjeta = new RoundedPanel(14, Color.WHITE, new Color(0xDCE6F1));
-        tarjeta.setLayout(new BorderLayout(0, 8));
-        tarjeta.setBorder(BorderFactory.createEmptyBorder(8, 22, 22, 22));
-
-        JPanel barra = new JPanel(new BorderLayout());
-        barra.setOpaque(false);
-        JLabel tituloBarra = new JLabel("Confirmación");
-        tituloBarra.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        tituloBarra.setForeground(TEXTO_SECUNDARIO);
-        JButton cerrar = new JButton("×");
-        cerrar.setFont(new Font("SansSerif", Font.PLAIN, 20));
-        cerrar.setForeground(TEXTO_SECUNDARIO);
-        cerrar.setBorderPainted(false);
-        cerrar.setContentAreaFilled(false);
-        cerrar.setFocusPainted(false);
-        cerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        cerrar.addActionListener(e -> confirmacion.dispose());
-        barra.add(tituloBarra, BorderLayout.WEST);
-        barra.add(cerrar, BorderLayout.EAST);
-        tarjeta.add(barra, BorderLayout.NORTH);
-
-        JPanel detalle = new JPanel();
-        detalle.setOpaque(false);
-        detalle.setLayout(new javax.swing.BoxLayout(detalle, javax.swing.BoxLayout.Y_AXIS));
-        JLabel icono = new JLabel(new IconoAdvertencia(58));
-        icono.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel titulo = new JLabel("Confirmar eliminación");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 20));
-        titulo.setForeground(new Color(0x173B68));
-        titulo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        String nombreSeguro = medicamento.getNombre()
-                .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-        JLabel mensaje = new JLabel("<html><div style='width:330px;text-align:center;'>"
-                + "¿Está seguro de eliminar el medicamento <b>\""
-                + nombreSeguro + "\"</b> del inventario?</div></html>");
-        mensaje.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        mensaje.setForeground(new Color(0x36577D));
-        mensaje.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
-        acciones.setOpaque(false);
-        JButton cancelar = boton("Cancelar", new Color(0xEAF2FB));
-        cancelar.setForeground(OSCURO);
-        cancelar.addActionListener(e -> confirmacion.dispose());
-        JButton eliminar = boton("Eliminar", RED_ACCION);
-        eliminar.addActionListener(e -> {
-            confirmado[0] = true;
-            confirmacion.dispose();
-        });
-        acciones.add(cancelar);
-        acciones.add(eliminar);
-
-        detalle.add(icono);
-        detalle.add(javax.swing.Box.createVerticalStrut(10));
-        detalle.add(titulo);
-        detalle.add(javax.swing.Box.createVerticalStrut(14));
-        detalle.add(mensaje);
-        detalle.add(javax.swing.Box.createVerticalStrut(22));
-        detalle.add(acciones);
-        tarjeta.add(detalle, BorderLayout.CENTER);
-        marco.add(tarjeta, BorderLayout.CENTER);
-
-        confirmacion.setContentPane(marco);
-        confirmacion.getRootPane().setDefaultButton(cancelar);
-        confirmacion.getRootPane().registerKeyboardAction(
-                e -> confirmacion.dispose(),
-                javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
-                javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
-        confirmacion.setMinimumSize(new java.awt.Dimension(430, 310));
-        confirmacion.pack();
-        confirmacion.setLocationRelativeTo(this);
-        confirmacion.setVisible(true);
-        return confirmado[0];
+        String nombre = medicamento.getNombre();
+        String mensaje = "¿Está seguro de eliminar el medicamento \"" + nombre + "\" del inventario?";
+        return LoginView.mostrarConfirmacion(this, "Confirmar eliminación", mensaje,
+                LoginView.TonoDialogo.DESTRUCTIVO);
     }
 
     private void validarSesionAdministradora() {
@@ -684,80 +371,19 @@ public class MedicamentoView extends JPanel {
         mostrarAlertaError(this, mensaje);
     }
 
-    private void mostrarError(Component padre, String mensaje) {
-        mostrarAlertaError(padre, mensaje);
-    }
-
     private void mostrarAlertaError(Component padre, String mensaje) {
-        JDialog alerta = new JDialog(SwingUtilities.getWindowAncestor(padre),
-                "Error al guardar", Dialog.ModalityType.APPLICATION_MODAL);
-        alerta.setUndecorated(true);
-        alerta.setResizable(false);
-        alerta.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-
-        RoundedPanel marco = new RoundedPanel(18, new Color(0xE7EEF7), new Color(0x7892B3));
-        marco.setLayout(new BorderLayout());
-        marco.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-
-        RoundedPanel tarjeta = new RoundedPanel(14, Color.WHITE, new Color(0xDCE6F1));
-        tarjeta.setLayout(new BorderLayout(0, 8));
-        tarjeta.setBorder(BorderFactory.createEmptyBorder(8, 20, 20, 20));
-
-        JPanel barra = new JPanel(new BorderLayout());
-        barra.setOpaque(false);
-        JLabel tituloBarra = new JLabel("Aviso");
-        tituloBarra.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        tituloBarra.setForeground(TEXTO_SECUNDARIO);
-        JButton cerrar = new JButton("×");
-        cerrar.setFont(new Font("SansSerif", Font.PLAIN, 20));
-        cerrar.setForeground(TEXTO_SECUNDARIO);
-        cerrar.setBorderPainted(false);
-        cerrar.setContentAreaFilled(false);
-        cerrar.setFocusPainted(false);
-        cerrar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        cerrar.addActionListener(e -> alerta.dispose());
-        barra.add(tituloBarra, BorderLayout.WEST);
-        barra.add(cerrar, BorderLayout.EAST);
-        tarjeta.add(barra, BorderLayout.NORTH);
-
-        JPanel detalle = new JPanel();
-        detalle.setOpaque(false);
-        detalle.setLayout(new javax.swing.BoxLayout(detalle, javax.swing.BoxLayout.Y_AXIS));
-        JLabel icono = new JLabel(new IconoAlerta(56));
-        icono.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel titulo = new JLabel("Error al guardar");
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 20));
-        titulo.setForeground(new Color(0x173B68));
-        titulo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        String textoSeguro = mensaje == null ? "" : mensaje
-                .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                .replace("\n", "<br>");
-        JLabel texto = new JLabel("<html><div style='width:330px;text-align:center;'>"
-                + textoSeguro + "</div></html>");
-        texto.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        texto.setForeground(new Color(0x36577D));
-        texto.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JButton aceptar = boton("Aceptar", AZUL);
-        aceptar.setAlignmentX(Component.CENTER_ALIGNMENT);
-        aceptar.addActionListener(e -> alerta.dispose());
-        detalle.add(icono);
-        detalle.add(javax.swing.Box.createVerticalStrut(10));
-        detalle.add(titulo);
-        detalle.add(javax.swing.Box.createVerticalStrut(12));
-        detalle.add(texto);
-        detalle.add(javax.swing.Box.createVerticalStrut(22));
-        detalle.add(aceptar);
-        tarjeta.add(detalle, BorderLayout.CENTER);
-        marco.add(tarjeta, BorderLayout.CENTER);
-
-        alerta.setContentPane(marco);
-        alerta.getRootPane().setDefaultButton(aceptar);
-        alerta.setMinimumSize(new java.awt.Dimension(410, 280));
-        alerta.pack();
-        alerta.setLocationRelativeTo(padre);
-        alerta.setVisible(true);
+        LoginView.mostrarAlertaError(padre, "Error", mensaje);
     }
 
+    private static String mensajeError(ExecutionException excepcion) {
+        Throwable causa = excepcion.getCause();
+        if (causa == null) {
+            return excepcion.toString();
+        }
+        return causa.getMessage() == null ? causa.toString() : causa.getMessage();
+    }
+
+    /** Campo de búsqueda con presentación y foco propios de la vista. */
     private static class CampoBusqueda extends JTextField {
         private final String textoAyuda;
 
@@ -794,6 +420,7 @@ public class MedicamentoView extends JPanel {
         }
     }
 
+    /** Renderiza el nivel de stock como indicador visual en la tabla. */
     private static class StockRenderer extends JLabel implements TableCellRenderer {
         StockRenderer() {
             setHorizontalAlignment(SwingConstants.CENTER);
@@ -829,6 +456,7 @@ public class MedicamentoView extends JPanel {
         }
     }
 
+    /** Aplica estilos a las celdas ordinarias del inventario. */
     private static class CeldaInventarioRenderer extends DefaultTableCellRenderer {
         CeldaInventarioRenderer() {
             setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 10));
@@ -851,6 +479,7 @@ public class MedicamentoView extends JPanel {
         }
     }
 
+    /** Presenta los botones de edición y eliminación en la tabla. */
     private class AccionesRenderer extends JPanel implements TableCellRenderer {
         AccionesRenderer() {
             setOpaque(true);
@@ -908,6 +537,7 @@ public class MedicamentoView extends JPanel {
         }
     }
 
+    /** Gestiona las acciones de fila sin trasladar reglas de negocio a la tabla. */
     private class AccionesEditor extends AbstractCellEditor implements TableCellEditor {
         private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 9));
         private final Consumer<String> editarAccion;
@@ -973,19 +603,7 @@ public class MedicamentoView extends JPanel {
         }
     }
 
-    private static JButton botonIcono(AccionIcono.Tipo tipo, Color color) {
-        BotonRedondeado boton = new BotonRedondeado("", color, Color.WHITE);
-        boton.setIcon(new AccionIcono(tipo, Color.WHITE, 17));
-        boton.setPreferredSize(new java.awt.Dimension(40, 38));
-        boton.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
-        boton.setToolTipText(switch (tipo) {
-            case EDITAR -> "Editar medicamento";
-            case ELIMINAR -> "Eliminar medicamento";
-            case AGREGAR -> "Registrar medicamento";
-        });
-        return boton;
-    }
-
+    /** Botón de acción con bordes redondeados para esta vista. */
     private static class BotonRedondeado extends JButton {
         private final Color colorBase;
         private final Color colorTexto;
@@ -1023,6 +641,7 @@ public class MedicamentoView extends JPanel {
         }
     }
 
+    /** Panel con esquinas y borde personalizados para la composición visual. */
     private static class RoundedPanel extends JPanel {
         private final int radio;
         private final Color fondo;
@@ -1049,6 +668,7 @@ public class MedicamentoView extends JPanel {
         }
     }
 
+    /** Borde redondeado usado por paneles y controles del inventario. */
     private static class RoundedLineBorder extends AbstractBorder {
         private final Color color;
         private final int radio;
@@ -1085,110 +705,9 @@ public class MedicamentoView extends JPanel {
         }
     }
 
-    private static class IconoMedicamento implements Icon {
-        private final int tamano;
-
-        IconoMedicamento(int tamano) {
-            this.tamano = tamano;
-        }
-
-        @Override
-        public int getIconWidth() {
-            return tamano;
-        }
-
-        @Override
-        public int getIconHeight() {
-            return tamano;
-        }
-
-        @Override
-        public void paintIcon(Component componente, Graphics g, int x, int y) {
-            Graphics2D graphics = (Graphics2D) g.create();
-            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON);
-            graphics.setColor(AZUL_CLARO);
-            graphics.fillOval(x, y, tamano, tamano);
-            graphics.translate(x + tamano / 2.0, y + tamano / 2.0);
-            graphics.rotate(-Math.PI / 4);
-            graphics.setColor(AZUL);
-            graphics.fillRoundRect(-7, -17, 14, 34, 14, 14);
-            graphics.fillRect(-7, -1, 14, 2);
-            graphics.dispose();
-        }
-    }
-
-    private static class IconoAlerta implements Icon {
-        private final int tamano;
-
-        IconoAlerta(int tamano) {
-            this.tamano = tamano;
-        }
-
-        @Override
-        public int getIconWidth() {
-            return tamano;
-        }
-
-        @Override
-        public int getIconHeight() {
-            return tamano;
-        }
-
-        @Override
-        public void paintIcon(Component componente, Graphics g, int x, int y) {
-            Graphics2D graphics = (Graphics2D) g.create();
-            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON);
-            graphics.setColor(new Color(0xEF4444));
-            graphics.fillOval(x + 3, y + 3, tamano - 6, tamano - 6);
-            graphics.setColor(Color.WHITE);
-            graphics.setStroke(new java.awt.BasicStroke(4f,
-                    java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
-            int centroX = x + tamano / 2;
-            graphics.drawLine(centroX, y + 17, centroX, y + 34);
-            graphics.fillOval(centroX - 2, y + 41, 4, 4);
-            graphics.dispose();
-        }
-    }
-
-    private static class IconoAdvertencia implements Icon {
-        private final int tamano;
-
-        IconoAdvertencia(int tamano) {
-            this.tamano = tamano;
-        }
-
-        @Override
-        public int getIconWidth() {
-            return tamano;
-        }
-
-        @Override
-        public int getIconHeight() {
-            return tamano;
-        }
-
-        @Override
-        public void paintIcon(Component componente, Graphics g, int x, int y) {
-            Graphics2D graphics = (Graphics2D) g.create();
-            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON);
-            int centroX = x + tamano / 2;
-            int[] xs = {centroX, x + 5, x + tamano - 5};
-            int[] ys = {y + 4, y + tamano - 5, y + tamano - 5};
-            graphics.setColor(new Color(0xF59E0B));
-            graphics.fillPolygon(xs, ys, 3);
-            graphics.setColor(Color.WHITE);
-            graphics.setStroke(new java.awt.BasicStroke(4f,
-                    java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
-            graphics.drawLine(centroX, y + 21, centroX, y + 37);
-            graphics.fillOval(centroX - 2, y + 43, 4, 4);
-            graphics.dispose();
-        }
-    }
-
+    /** Iconos de las acciones de fila y del botón de alta. */
     private static class AccionIcono implements Icon {
+        /** Acciones posibles que se representan con el icono. */
         private enum Tipo {
             AGREGAR, EDITAR, ELIMINAR
         }

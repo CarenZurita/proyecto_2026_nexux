@@ -38,20 +38,51 @@ class EncargadoTest {
     }
 
     @Test
-    void buscaMedicamentosPorNombreYCodigo() throws IOException {
+    void buscaMedicamentosPorNombre() throws IOException {
         List<Medicamento> porNombre =
                 encargado.buscarMedicamento("aspir", medicamentos);
+
+        assertEquals(3, porNombre.size());
+    }
+
+    @Test
+    void buscaMedicamentosPorCodigo() throws IOException {
         List<Medicamento> porCodigo =
                 encargado.buscarMedicamento("med-002", medicamentos);
 
-        assertEquals(3, porNombre.size());
         assertEquals("MED-002", porCodigo.get(0).getCodigo());
     }
 
     @Test
-    void consultaStockPorCodigo() throws IOException {
+    void buscaMedicamentosPorMarca() throws IOException {
+        medicamentos.registrar(crearMedicamento(
+                "MED-004", "aspirina", "2030-01-01", "Marca Farma", 7.5));
+
+        List<Medicamento> encontrados = encargado.buscarMedicamento("FARMA", medicamentos);
+
+        assertEquals(1, encontrados.size());
+        assertEquals("MED-004", encontrados.get(0).getCodigo());
+    }
+
+    @Test
+    void buscaMedicamentosPorPrecioExactoConPuntoYComa() throws IOException {
+        medicamentos.registrar(crearMedicamento(
+                "MED-004", "aspirina", "2030-01-01", "Marca Farma", 7.5));
+
+        assertEquals("MED-004",
+                encargado.buscarMedicamento("7.5", medicamentos).get(0).getCodigo());
+        assertEquals("MED-004",
+                encargado.buscarMedicamento("7,50", medicamentos).get(0).getCodigo());
+    }
+
+    @Test
+    void consultaStockPorCodigoExistente() throws IOException {
         assertEquals(8, encargado.consultarStock("MED-001", medicamentos)
                 .orElseThrow().getCantidadDisponible());
+    }
+
+    @Test
+    void consultaStockDeCodigoInexistente() throws IOException {
         assertFalse(encargado.consultarStock("no-existe", medicamentos).isPresent());
     }
 
@@ -78,5 +109,11 @@ class EncargadoTest {
             String codigo, int cantidad, String vencimiento) {
         return new Medicamento("Aspirina", codigo, "Analgésico",
                 "Tabletas", "Laboratorio", cantidad, vencimiento);
+    }
+
+    private static Medicamento crearMedicamento(
+            String codigo, String nombre, String vencimiento, String marca, double precio) {
+        return new Medicamento(nombre, codigo, "Analgésico", "Tabletas",
+                "Laboratorio", marca, 10, vencimiento, precio, 2);
     }
 }

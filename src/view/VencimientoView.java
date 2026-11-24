@@ -35,14 +35,20 @@ public class VencimientoView extends JPanel {
     private final JTable tabla = new JTable(modelo);
 
     public VencimientoView() {
+        this(true);
+    }
+
+    public VencimientoView(boolean mostrarTituloSeccion) {
         super(new BorderLayout(0, 18));
         setOpaque(false);
-        setBorder(BorderFactory.createEmptyBorder(22, 0, 0, 0));
+        setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
         JPanel cabecera = new JPanel(new BorderLayout(12, 0));
         cabecera.setOpaque(false);
+        JPanel controles = new JPanel(new BorderLayout(12, 0));
+        controles.setOpaque(false);
         resumen.setFont(new Font("SansSerif", Font.PLAIN, 13));
         resumen.setForeground(GRIS);
-        cabecera.add(resumen, BorderLayout.CENTER);
+        controles.add(resumen, BorderLayout.CENTER);
         actualizar.setFont(new Font("SansSerif", Font.BOLD, 13));
         actualizar.setBackground(AZUL);
         actualizar.setForeground(Color.WHITE);
@@ -51,9 +57,16 @@ public class VencimientoView extends JPanel {
         actualizar.setBorderPainted(false);
         actualizar.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
         actualizar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        cabecera.add(actualizar, BorderLayout.EAST);
+        controles.add(actualizar, BorderLayout.EAST);
+        if (mostrarTituloSeccion) {
+            cabecera.add(EstiloSistema.subtituloSeccion("Vencimientos"), BorderLayout.NORTH);
+            cabecera.add(controles, BorderLayout.SOUTH);
+        } else {
+            cabecera.add(controles, BorderLayout.CENTER);
+        }
         add(cabecera, BorderLayout.NORTH);
 
+        EstiloSistema.aplicarTabla(tabla);
         tabla.setRowHeight(42);
         tabla.setFont(new Font("SansSerif", Font.PLAIN, 13));
         tabla.setForeground(TEXTO);
@@ -66,7 +79,7 @@ public class VencimientoView extends JPanel {
         tabla.setAutoCreateRowSorter(true);
         tabla.getTableHeader().setReorderingAllowed(false);
         tabla.getTableHeader().setPreferredSize(new Dimension(0, 42));
-        tabla.getTableHeader().setBackground(new Color(0xDBEAFE));
+        tabla.getTableHeader().setBackground(EstiloSistema.ENCABEZADO_TABLA);
         tabla.getTableHeader().setForeground(new Color(0x1E40AF));
         tabla.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
         tabla.setDefaultRenderer(String.class, new TextoRenderer());
@@ -77,7 +90,7 @@ public class VencimientoView extends JPanel {
         tabla.getColumnModel().getColumn(2).setPreferredWidth(165);
         tabla.getColumnModel().getColumn(3).setPreferredWidth(155);
         JScrollPane scroll = new JScrollPane(tabla);
-        scroll.setBorder(BorderFactory.createLineBorder(new Color(0xE2E8F0)));
+        scroll.setBorder(BorderFactory.createLineBorder(EstiloSistema.BORDE));
         add(scroll, BorderLayout.CENTER);
 
         JPanel pie = new JPanel(new BorderLayout(0, 14));
@@ -209,7 +222,7 @@ public class VencimientoView extends JPanel {
             p.fillRect(0, 0, getWidth(), getHeight());
             p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             p.setColor(fondo);
-            p.fillRoundRect(8, 6, Math.max(0, getWidth() - 16), getHeight() - 12, 10, 10);
+            p.fillRoundRect(8, 6, Math.max(0, getWidth() - 16), getHeight() - 12, 9999, 9999);
             p.dispose();
             setOpaque(false);
             super.paintComponent(g);

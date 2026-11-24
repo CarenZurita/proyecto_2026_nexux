@@ -97,7 +97,7 @@ public class VentaView extends JPanel {
     }
 
     private JButton boton(String texto, Color color) {
-        JButton b = new JButton(texto);
+        JButton b = new ComponentesRedondeados.Boton(texto);
         b.setBackground(color);
         b.setForeground(Color.WHITE);
         b.setFont(new Font("SansSerif", Font.BOLD, 13));
@@ -112,21 +112,11 @@ public class VentaView extends JPanel {
 
     private void crearFormulario() {
 
-        JPanel encabezado = new JPanel(new BorderLayout());
+        JPanel encabezado = new JPanel(new BorderLayout(12, 0));
         encabezado.setOpaque(false);
-        encabezado.setBorder(
-                new EmptyBorder(0, 0, 15, 0));
-
-        JPanel textos = new JPanel(new GridLayout(2, 1));
-        textos.setOpaque(false);
-        textos.add(titulo("Punto de venta", 25));
-
-        JLabel subtitulo = new JLabel(
-                "Farmacia Salud Vida - Registro de ventas");
-        subtitulo.setForeground(GRIS);
-        textos.add(subtitulo);
-
-        encabezado.add(textos, BorderLayout.WEST);
+        encabezado.setBorder(new EmptyBorder(0, 0, 15, 0));
+        encabezado.add(EstiloSistema.encabezado("ventas", "Punto de venta",
+                "Farmacia Salud Vida · Registro de ventas"), BorderLayout.CENTER);
 
         JButton btnHistorial = boton(
                 "Historial de ventas", AZUL);
@@ -236,6 +226,7 @@ public class VentaView extends JPanel {
         };
 
         tabla = new JTable(modeloTabla);
+        EstiloSistema.aplicarTabla(tabla);
         tabla.setRowHeight(30);
         tabla.setSelectionMode(
                 ListSelectionModel.SINGLE_SELECTION);
@@ -254,10 +245,10 @@ public class VentaView extends JPanel {
         accionesCarrito.setOpaque(false);
 
         JButton btnQuitar = boton(
-                "Quitar producto", new Color(220, 38, 38));
+                "Quitar producto", new Color(0xEF4444));
 
         JButton btnVaciar = boton(
-                "Vaciar carrito", GRIS);
+                "Vaciar carrito", new Color(0xEF4444));
 
         JButton btnCantidad = boton(
                 "Cambiar cantidad", AZUL);
@@ -322,7 +313,7 @@ public class VentaView extends JPanel {
         agregar(zonaInferior, Box.createVerticalStrut(15));
 
         JButton btnRegistrar = boton(
-                "CONFIRMAR VENTA", new Color(22, 163, 74));
+                "CONFIRMAR VENTA", AZUL);
 
         btnRegistrar.setAlignmentX(Component.LEFT_ALIGNMENT);
         btnRegistrar.addActionListener(e -> registrarVenta());
@@ -335,6 +326,7 @@ public class VentaView extends JPanel {
         cuerpo.add(derecha);
 
         add(cuerpo, BorderLayout.CENTER);
+        EstiloSistema.aplicarCampos(this);
     }
 
     private void agregar(JPanel panel, Component componente) {
@@ -538,13 +530,8 @@ public class VentaView extends JPanel {
 
         if (carrito.isEmpty()) return;
 
-        int respuesta = JOptionPane.showConfirmDialog(
-                this,
-                "¿Desea vaciar el carrito?",
-                "Confirmación",
-                JOptionPane.YES_NO_OPTION);
-
-        if (respuesta == JOptionPane.YES_OPTION) {
+        if (LoginView.mostrarConfirmacion(this, "Confirmación", "¿Desea vaciar el carrito?",
+                LoginView.TonoDialogo.ADVERTENCIA)) {
             limpiarCarrito();
         }
     }
@@ -721,16 +708,12 @@ public class VentaView extends JPanel {
 
             BigDecimal cambio = efectivo.subtract(totalActual);
 
-            int confirmar = JOptionPane.showConfirmDialog(
-                    this,
-                    "Total: " + dinero(totalActual)
+            String mensaje = "Total: " + dinero(totalActual)
                     + "\nRecibido: " + dinero(efectivo)
                     + "\nCambio: " + dinero(cambio)
-                    + "\n\n¿Confirmar esta venta?",
-                    "Confirmar venta",
-                    JOptionPane.YES_NO_OPTION);
+                    + "\n\n¿Confirmar esta venta?";
 
-            if (confirmar != JOptionPane.YES_OPTION) return;
+            if (!LoginView.mostrarConfirmacion(this, "Confirmar venta", mensaje)) return;
 
             // UTILIZA EL METODO ORIGINAL DEL MODELO
             venta.registrar(sesion, medicamentos, ventas);
@@ -867,6 +850,7 @@ public class VentaView extends JPanel {
             }
 
             JTable tablaHistorial = new JTable(modelo);
+            EstiloSistema.aplicarTabla(tablaHistorial);
             tablaHistorial.setRowHeight(28);
 
             JScrollPane scroll =
@@ -884,15 +868,10 @@ public class VentaView extends JPanel {
     }
 
     private void aviso(String mensaje) {
-        JOptionPane.showMessageDialog(
-                this, mensaje, "Aviso",
-                JOptionPane.WARNING_MESSAGE);
+        LoginView.mostrarAlertaError(this, "Aviso", mensaje);
     }
 
     private void error(Exception ex) {
-        JOptionPane.showMessageDialog(
-                this, "Operación no completada:\n"
-                        + ex.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
+        LoginView.mostrarAlertaError(this, "Error", "Operación no completada:\n" + ex.getMessage());
     }
 }
