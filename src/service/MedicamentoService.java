@@ -3,8 +3,10 @@ package service;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.format.ResolverStyle;
 import java.util.List;
 import java.util.Optional;
 import model.Medicamento;
@@ -23,9 +25,11 @@ public class MedicamentoService {
     private static final String MENSAJE_NUMEROS =
             "Precio o cantidad no válidos. Usa números positivos.";
     private static final String MENSAJE_FECHA =
-            "La fecha debe tener formato MM/AAAA, por ejemplo 12/2027.";
+            "La fecha debe tener formato dd/MM/aaaa, por ejemplo 31/10/2025.";
     private static final DateTimeFormatter FORMATO_FECHA =
-            DateTimeFormatter.ofPattern("MM/uuuu");
+            DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
+    private static final DateTimeFormatter FORMATO_MES =
+            DateTimeFormatter.ofPattern("MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
     private final MedicamentoRepository repositorio;
 
@@ -282,10 +286,11 @@ public class MedicamentoService {
             throw new IllegalArgumentException(MENSAJE_CAMPOS_OBLIGATORIOS);
         }
         DatosMedicamento normalizados = new DatosMedicamento(
-                recortar(datos.nombre()),
-                recortar(datos.codigo()),
+                NormalizacionMedicamento.capitalizarPrimeraLetra(recortar(datos.nombre())),
+                NormalizacionMedicamento.aMayusculas(recortar(datos.codigo())),
                 recortar(datos.categoria()),
-                recortar(datos.presentacion()),
+                NormalizacionMedicamento.capitalizarPrimeraLetra(
+                        recortar(datos.presentacion())),
                 recortar(datos.laboratorio()),
                 recortar(datos.precio()),
                 recortar(datos.cantidad()),
@@ -331,12 +336,16 @@ public class MedicamentoService {
             throw new IllegalArgumentException(MENSAJE_NUMEROS);
         }
         String vencimiento = datos.vencimiento();
-        if (!vencimiento.matches("(0[1-9]|1[0-2])/\\d{4}")) {
-            throw new IllegalArgumentException(MENSAJE_FECHA);
-        }
         try {
-            YearMonth mes = YearMonth.parse(vencimiento, FORMATO_FECHA);
-            return new ValoresMedicamento(precio, cantidad, mes.atEndOfMonth().toString());
+            if (vencimiento.matches("\\d{2}/\\d{2}/\\d{4}")) {
+                LocalDate fecha = LocalDate.parse(vencimiento, FORMATO_FECHA);
+                return new ValoresMedicamento(precio, cantidad, fecha.toString());
+            }
+            if (vencimiento.matches("\\d{2}/\\d{4}")) {
+                YearMonth mes = YearMonth.parse(vencimiento, FORMATO_MES);
+                return new ValoresMedicamento(precio, cantidad, mes.atEndOfMonth().toString());
+            }
+            throw new IllegalArgumentException(MENSAJE_FECHA);
         } catch (DateTimeException e) {
             throw new IllegalArgumentException(MENSAJE_FECHA, e);
         }

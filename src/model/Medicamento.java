@@ -1,12 +1,18 @@
 package model;
 
+import java.time.DateTimeException;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.ResolverStyle;
 
 /**
  * Entidad de inventario del modelo MVC: concentra los datos y las reglas
  * locales de cantidad, precio, stock y vencimiento.
  */
 public class Medicamento {
+    private static final DateTimeFormatter FORMATO_FECHA_TEXTO =
+            DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
+
     /** Estado calculado del medicamento respecto de su fecha de vencimiento. */
     public enum EstadoVencimiento {
         VIGENTE,
@@ -307,7 +313,7 @@ public class Medicamento {
     public String aLinea() {
         return String.join(";", nombre, codigo, categoria, presentacion,
                 laboratorio, String.valueOf(cantidadDisponible),
-                fechaVencimiento.toString(), String.valueOf(precio),
+                fechaVencimiento.format(FORMATO_FECHA_TEXTO), String.valueOf(precio),
                 String.valueOf(stockMinimo), marca);
     }
 
@@ -332,11 +338,22 @@ public class Medicamento {
             }
             String marca = datos.length == 10 ? datos[9] : "Sin marca";
             return new Medicamento(datos[0], datos[1], datos[2], datos[3],
-                    datos[4], marca, Integer.parseInt(datos[5]), datos[6],
+                    datos[4], marca, Integer.parseInt(datos[5]), fechaIso(datos[6]),
                     precio, stockMinimo);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(
                     "La cantidad o el precio del medicamento no son válidos.", e);
+        }
+    }
+
+    private static String fechaIso(String fecha) {
+        try {
+            LocalDate fechaParseada = fecha.matches("\\d{2}/\\d{2}/\\d{4}")
+                    ? LocalDate.parse(fecha, FORMATO_FECHA_TEXTO)
+                    : LocalDate.parse(fecha);
+            return fechaParseada.toString();
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException("La fecha de vencimiento no es válida.", e);
         }
     }
 

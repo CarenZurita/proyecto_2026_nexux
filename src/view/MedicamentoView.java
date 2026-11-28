@@ -240,7 +240,8 @@ public class MedicamentoView extends JPanel {
                     medicamento.getPresentacion(),
                     medicamento.getCantidadDisponible(),
                     String.format(Locale.US, "Bs %.2f", medicamento.getPrecio()),
-                    medicamento.getFechaVencimientoDate().format(DateTimeFormatter.ofPattern("MM/yyyy"))
+                    medicamento.getFechaVencimientoDate().format(
+                            DateTimeFormatter.ofPattern("dd/MM/yyyy"))
             });
         }
         if (registroVisible != null) {

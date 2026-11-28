@@ -70,12 +70,16 @@ class MedicamentoTest {
 				"Paracetamol;MED-002;Analgesico;Tabletas;Laboratorio A;10;2030-01-15;4.5;2");
 		Medicamento sinPrecio = Medicamento.desdeLinea(
 				"Paracetamol;MED-003;Analgesico;Tabletas;Laboratorio A;10;2030-01-15");
+		Medicamento fechaNueva = Medicamento.desdeLinea(
+				"Paracetamol;MED-004;Analgesico;Tabletas;Laboratorio A;10;31/10/2025");
 
 		assertEquals("Marca A", reconstruido.getMarca());
+		assertEquals("15/01/2030", medicamento.aLinea().split(";")[6]);
 		assertEquals(4.5, reconstruido.getPrecio());
 		assertEquals("Sin marca", antiguo.getMarca());
 		assertEquals("Sin marca", sinPrecio.getMarca());
 		assertEquals(0.0, sinPrecio.getPrecio());
+		assertEquals("2025-10-31", fechaNueva.getFechaVencimiento());
 	}
 
 	/**
