@@ -54,7 +54,7 @@ class MedicamentoControllerTest {
         controlador.actualizar(administrador, "MED-001", actualizado);
         Medicamento medicamento = controlador.listar(administrador).get(0);
 
-        assertEquals("Aspirina Forte", medicamento.getNombre());
+        assertEquals("Aspirina forte", medicamento.getNombre());
         assertEquals(3.75, medicamento.getPrecio());
 
         controlador.eliminar(administrador, "MED-001");

@@ -14,9 +14,6 @@ import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
-import java.awt.Window;
-import java.time.format.DateTimeFormatter;
-import java.time.format.ResolverStyle;
 import java.util.Locale;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
@@ -26,13 +23,19 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.JTextField;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
+import javax.swing.SwingUtilities;
 import service.DatosMedicamento;
+import service.NormalizacionMedicamento;
 import model.Medicamento;
 
 /**
@@ -44,8 +47,6 @@ final class MedicamentoFormDialog extends JDialog {
     private static final Color TEXTO_FORM = new Color(0x1E293B);
     private static final Color TEXTO_SECUNDARIO = new Color(0x64748B);
     private static final Color AZUL = new Color(0x2563EB);
-    private static final DateTimeFormatter FORMATO_FECHA =
-            DateTimeFormatter.ofPattern("MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
     private final JTextField nombre;
     private final JTextField codigo;
@@ -54,7 +55,7 @@ final class MedicamentoFormDialog extends JDialog {
     private final JComboBox<String> laboratorio;
     private final JTextField precio;
     private final JTextField cantidad;
-    private final JTextField vencimiento;
+    private final DatePicker vencimiento;
     private final JButton guardar;
     private final JButton cancelar;
     private Consumer<DatosMedicamento> alGuardar;
@@ -84,7 +85,9 @@ final class MedicamentoFormDialog extends JDialog {
         root.add(header, BorderLayout.NORTH);
 
         nombre = campo(existente == null ? "" : existente.getNombre(), "Nombre comercial");
+        aplicarTransformacion(nombre, NormalizacionMedicamento::capitalizarPrimeraLetra);
         codigo = campo(existente == null ? "" : existente.getCodigo(), "Código interno");
+        aplicarTransformacion(codigo, NormalizacionMedicamento::aMayusculas);
         categoria = crearCombo(new String[]{
                 "Analgésico", "Antibiótico", "Antiinflamatorio", "Antihistamínico",
                 "Antiácido", "Vitamina", "Otro"
@@ -94,12 +97,14 @@ final class MedicamentoFormDialog extends JDialog {
         }, existente == null ? null : existente.getLaboratorio());
         presentacion = campo(existente == null ? ""
                 : existente.getPresentacion(), "Ej. Caja x 20 tabletas");
+        aplicarTransformacion(presentacion,
+                NormalizacionMedicamento::capitalizarPrimeraLetra);
         precio = campo(existente == null ? ""
                 : String.format(Locale.US, "%.2f", existente.getPrecio()), "Precio en Bs.");
         cantidad = campo(existente == null ? ""
                 : Integer.toString(existente.getCantidadDisponible()), "Stock inicial");
-        vencimiento = campo(existente == null ? ""
-                : existente.getFechaVencimientoDate().format(FORMATO_FECHA), "MM/AAAA");
+        vencimiento = new DatePicker(existente == null
+                ? null : existente.getFechaVencimientoDate());
 
         JPanel grid = new JPanel(new GridBagLayout());
         grid.setOpaque(false);
@@ -115,7 +120,7 @@ final class MedicamentoFormDialog extends JDialog {
         c.insets = new Insets(0, 0, 14, 12);
         addField(grid, "Laboratorio *", laboratorio, 0, 1, c);
         addField(grid, "Presentación *", presentacion, 1, 1, c);
-        addField(grid, "Vencimiento (MM/AAAA) *", vencimiento, 2, 1, c);
+        addField(grid, "Vencimiento (DD/MM/AAAA) *", vencimiento, 2, 1, c);
         c.insets = new Insets(0, 0, 0, 12);
         addField(grid, "Precio (Bs) *", precio, 0, 2, c);
         addField(grid, "Cantidad *", cantidad, 1, 2, c);
@@ -170,7 +175,7 @@ final class MedicamentoFormDialog extends JDialog {
         alGuardar.accept(new DatosMedicamento(
                 nombre.getText(), codigo.getText(), String.valueOf(categoria.getSelectedItem()),
                 presentacion.getText(), String.valueOf(laboratorio.getSelectedItem()),
-                precio.getText(), cantidad.getText(), vencimiento.getText()));
+                precio.getText(), cantidad.getText(), vencimiento.getValue()));
     }
 
     private JButton boton(String texto, Color color) {
@@ -214,6 +219,41 @@ final class MedicamentoFormDialog extends JDialog {
             campo.setToolTipText(textoAyuda);
         }
         return campo;
+    }
+
+    private void aplicarTransformacion(
+            JTextField campo, java.util.function.UnaryOperator<String> transformar) {
+        AbstractDocument documento = (AbstractDocument) campo.getDocument();
+        documento.setDocumentFilter(new DocumentFilter() {
+            @Override
+            public void insertString(FilterBypass bypass, int offset, String texto,
+                                     AttributeSet atributos) throws BadLocationException {
+                replace(bypass, offset, 0, texto, atributos);
+            }
+
+            @Override
+            public void remove(FilterBypass bypass, int offset, int longitud)
+                    throws BadLocationException {
+                replace(bypass, offset, longitud, "", null);
+            }
+
+            @Override
+            public void replace(FilterBypass bypass, int offset, int longitud, String texto,
+                                AttributeSet atributos) throws BadLocationException {
+                String actual = bypass.getDocument().getText(
+                        0, bypass.getDocument().getLength());
+                String reemplazo = texto == null ? "" : texto;
+                String resultado = actual.substring(0, offset) + reemplazo
+                        + actual.substring(offset + longitud);
+                String transformado = transformar.apply(resultado);
+                int posicionCursor = transformar.apply(
+                        resultado.substring(0, offset + reemplazo.length())).length();
+                bypass.replace(0, bypass.getDocument().getLength(), transformado, atributos);
+                SwingUtilities.invokeLater(() -> campo.setCaretPosition(
+                        Math.min(posicionCursor, campo.getDocument().getLength())));
+            }
+        });
+        campo.setText(campo.getText());
     }
 
     private void addField(JPanel panel, String label, JComponent field,

@@ -11,7 +11,8 @@ package service;
  * @param laboratorio laboratorio de origen
  * @param precio precio capturado con coma o punto decimal
  * @param cantidad cantidad capturada como entero
- * @param vencimiento mes y año capturados en formato {@code MM/AAAA}
+ * @param vencimiento fecha capturada en formato {@code dd/MM/yyyy}; se acepta
+ *                    {@code MM/AAAA} para mantener compatibilidad con clientes existentes
  */
 public record DatosMedicamento(
         String nombre,

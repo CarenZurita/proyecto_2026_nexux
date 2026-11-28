@@ -102,6 +102,21 @@ class MedicamentoServiceTest {
     }
 
     @Test
+    void registrarNormalizaTextoYConservaElDiaDeLaFecha() throws IOException {
+        DatosMedicamento datos = new DatosMedicamento(
+                "  pARACETAMOL  ", "med-009", "Analgésico", "JARABE",
+                "Laboratorio", "1.25", "5", "31/10/2025");
+
+        servicio.registrar(administrador, datos);
+
+        Medicamento guardado = servicio.listar(administrador).get(0);
+        assertEquals("Paracetamol", guardado.getNombre());
+        assertEquals("MED-009", guardado.getCodigo());
+        assertEquals("Jarabe", guardado.getPresentacion());
+        assertEquals("2025-10-31", guardado.getFechaVencimiento());
+    }
+
+    @Test
     void registrarRechazaCamposObligatoriosVacios() {
         DatosMedicamento incompleto = new DatosMedicamento(
                 " ", "MED-001", "Analgésico", "Tabletas",
@@ -122,7 +137,7 @@ class MedicamentoServiceTest {
                 () -> servicio.registrar(administrador,
                         datos("med-001", "1.25", "1", "12/2030")));
 
-        assertEquals("El código med-001 ya se encuentra registrado.",
+        assertEquals("El código MED-001 ya se encuentra registrado.",
                 excepcion.getMessage());
     }
 
@@ -172,7 +187,17 @@ class MedicamentoServiceTest {
                 () -> servicio.registrar(administrador,
                         datos("MED-001", "1.25", "1", "13/2030")));
 
-        assertEquals("La fecha debe tener formato MM/AAAA, por ejemplo 12/2027.",
+        assertEquals("La fecha debe tener formato dd/MM/aaaa, por ejemplo 31/10/2025.",
+                excepcion.getMessage());
+    }
+
+    @Test
+    void registrarRechazaDiasInexistentes() {
+        IllegalArgumentException excepcion = assertThrows(IllegalArgumentException.class,
+                () -> servicio.registrar(administrador,
+                        datos("MED-001", "1.25", "1", "31/02/2025")));
+
+        assertEquals("La fecha debe tener formato dd/MM/aaaa, por ejemplo 31/10/2025.",
                 excepcion.getMessage());
     }
 
@@ -215,7 +240,7 @@ class MedicamentoServiceTest {
                 datos("MED-001", "2,50", "6", "11/2031"));
 
         Medicamento actualizado = servicio.listar(administrador).get(0);
-        assertEquals("Aspirina Nueva", actualizado.getNombre());
+        assertEquals("Aspirina nueva", actualizado.getNombre());
         assertEquals("Marca Original", actualizado.getMarca());
         assertEquals(4, actualizado.getStockMinimo());
         assertEquals(2.5, actualizado.getPrecio());
